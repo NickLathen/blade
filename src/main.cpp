@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <string>
 
-#include "Scene.hpp"
+#include "Actor.hpp"
 #include "Shader.hpp"
 #include "utils.hpp"
 
@@ -30,8 +30,8 @@ void GL_APIENTRY MessageCallback(GLenum source, GLenum type, GLuint id,
   throw;
 }
 
-const int SCREEN_WIDTH = 1600;
-const int SCREEN_HEIGHT = 1200;
+int SCREEN_WIDTH = 1600;
+int SCREEN_HEIGHT = 1200;
 
 SDL_Window *gWindow = NULL;
 SDL_GLContext ctx = NULL;
@@ -84,7 +84,7 @@ void printGLInfo() {
             << glGetString(GL_SHADING_LANGUAGE_VERSION) << std::endl;
 }
 
-Scene import(const std::string &pFile) {
+Actor import(const std::string &pFile) {
   Assimp::Importer importer;
   const aiScene *scene = importer.ReadFile(pFile, 0);
 
@@ -93,7 +93,7 @@ Scene import(const std::string &pFile) {
     std::cerr << "ERROR::ASSIMP::" << importer.GetErrorString() << std::endl;
     return nullptr;
   }
-  return Scene{scene};
+  return Actor{scene};
 }
 
 int main(int argc, char *args[]) {
@@ -101,14 +101,8 @@ int main(int argc, char *args[]) {
   glEnable(GL_DEBUG_OUTPUT);
   glDebugMessageCallback(MessageCallback, 0);
   printGLInfo();
-  glEnable(GL_CULL_FACE);
-  glCullFace(GL_BACK);
-  glFrontFace(GL_CCW);
-  glEnable(GL_DEPTH_TEST);
 
-  Shader shader{"shaders/vertex.glsl", "shaders/fragment.glsl"};
-  shader.setUniformBlockBinding("uMaterialBlock", 0);
-  Scene s = import("assets/fullroom/fullroom.obj");
+  Actor s = import("assets/fullroom/fullroom.obj");
 
   SDL_Event e;
   bool quit = false;
@@ -129,28 +123,6 @@ int main(int argc, char *args[]) {
     static const float bg[] = {0.3f, 0.3f, 0.3f, 1.0f};
     glClearBufferfv(GL_COLOR, 0, bg);
 
-    shader.useProgram();
-
-    glm::vec3 uCameraPos{2.0f, 2.0f, 2.0f};
-    glm::vec3 uAmbientLightColor = glm::vec3{.3, .3, .3};
-    glm::vec3 uLightDir = glm::vec3(-1, -5, 1);
-    glm::vec3 uLightColor = glm::vec3{1, 1, 1};
-
-    glUniform3fv(shader.getUniformLocation("uCameraPos"), 1,
-                 glm::value_ptr(uCameraPos));
-    glUniform3fv(shader.getUniformLocation("uAmbientLightColor"), 1,
-                 glm::value_ptr(uAmbientLightColor));
-    glUniform3fv(shader.getUniformLocation("uLightDir"), 1,
-                 glm::value_ptr(uLightDir));
-    glUniform3fv(shader.getUniformLocation("uLightColor"), 1,
-                 glm::value_ptr(uLightColor));
-
-    glm::vec3 up{0.0f, 1.0f, 0.0f};
-    glm::vec3 cameraTargetPos{0.0f, 0.5f, 0.0f};
-    glm::mat4 view = glm::lookAt(uCameraPos, cameraTargetPos, up);
-    glm::mat4 projection = glm::perspective(
-        glm::radians(45.0f), (float)SCREEN_WIDTH / SCREEN_HEIGHT, 0.1f, 100.0f);
-    glm::mat4 vp = projection * view;
     // rotate model
     float initial = 0;
     float end = M_PIf * 2.0;
@@ -162,7 +134,10 @@ int main(int argc, char *args[]) {
     glm::vec3 yAxis{0, 1, 0};
     model = glm::rotate(model, rotation, yAxis);
 
-    s.draw(shader, vp, model, 0);
+    glm::vec3 cameraPos{2.0, 2.0, 2.0};
+    float aspectRatio = 1.0 * SCREEN_WIDTH / SCREEN_HEIGHT;
+
+    s.draw(cameraPos, aspectRatio, model);
 
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
     SDL_GL_SwapWindow(gWindow);

@@ -10,7 +10,7 @@ CXXFLAGS=$(STD) $(SANITIZE) $(WARNALL) $(DEBUG) $(INCLUDES)
 SOURCES=src/main.cpp \
         src/utils.cpp \
 		src/Shader.cpp \
-		src/Scene.cpp \
+		src/Actor.cpp \
 		src/Material.cpp \
 		src/Mesh.cpp \
 		src/Entity.cpp

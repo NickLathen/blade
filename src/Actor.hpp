@@ -7,11 +7,22 @@
 #include <assimp/scene.h>
 #include <vector>
 
-class Scene {
+struct EntityMap {
+  uint meshId;
+  uint materialId;
+};
+
+struct MeshMap {
+  GLuint VAO;
+  GLuint VBO;
+  GLuint EBO;
+};
+
+class Actor {
 public:
-  Scene(const aiScene *scene);
-  void draw(const Shader &shader, const glm::mat4 &viewProjection,
-            const glm::mat4 &modelTransform, GLuint uMaterialBlockBinding);
+  Actor(const aiScene *scene);
+  void draw(const glm::vec3 &cameraPos, float aspectRatio,
+            const glm::mat4 &modelTransform);
 
 private:
   uint _addEntity(const aiMesh *mesh, uint materialIdx,
@@ -21,10 +32,9 @@ private:
   std::vector<Entity> mEntities{};
   std::vector<Mesh> mMeshes{};
   std::vector<Material> mMaterials{};
-  std::vector<uint> mMap_entity_mesh{};
-  std::vector<uint> mMap_entity_material{};
-  std::vector<GLuint> mMap_mesh_vao{};
-  std::vector<GLuint> mMap_mesh_vbo{};
-  std::vector<GLuint> mMap_mesh_ebo{};
-  GLuint mUBOMaterial{0};
+  std::vector<EntityMap> mEntityMap{};
+  std::vector<MeshMap> mMeshMap{};
+  Shader mShader;
+  GLuint muMaterialBlockBinding{0};
+  GLuint muMaterialUBO{0};
 };
