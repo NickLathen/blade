@@ -17,7 +17,16 @@ Actor::Actor(const aiScene *scene)
     _addMaterial(scene->mMaterials[i]);
   }
   processNode(processNode, scene->mRootNode);
+
+  uint numMaterials = mMaterials.size();
+  BSDFMaterial materialData[numMaterials];
+  for (uint i = 0; i < numMaterials; i++) {
+    materialData[i] = mMaterials[i].getProperties();
+  }
   glGenBuffers(1, &muMaterialUBO);
+  glBindBuffer(GL_UNIFORM_BUFFER, muMaterialUBO);
+  glBufferData(GL_UNIFORM_BUFFER, sizeof(materialData), materialData,
+               GL_STATIC_DRAW);
 };
 
 void Actor::draw(const glm::vec3 &cameraPos, float aspectRatio,
@@ -48,11 +57,12 @@ void Actor::draw(const glm::vec3 &cameraPos, float aspectRatio,
   glm::mat4 projection =
       glm::perspective(glm::radians(45.0f), aspectRatio, 0.1f, 100.0f);
   glm::mat4 viewProjection = projection * view;
+  // Uniform Blocks
+  glBindBufferBase(GL_UNIFORM_BUFFER, muMaterialBlockBinding, muMaterialUBO);
   for (uint i = 0; i < mEntities.size(); i++) {
 
     const Entity &entity = mEntities[i];
     const EntityMap &entityMap = mEntityMap[i];
-    const Material &material = mMaterials[entityMap.materialId];
     const Mesh &mesh = mMeshes[entityMap.meshId];
     const MeshMap &meshMap = mMeshMap[entityMap.meshId];
 
@@ -65,13 +75,8 @@ void Actor::draw(const glm::vec3 &cameraPos, float aspectRatio,
         glm::mat3(model); // no inverse-transpose for orthogonal matrix
     glUniformMatrix3fv(mShader.getUniformLocation("uWorldMatrix"), 1, GL_FALSE,
                        glm::value_ptr(uWorldMatrix));
-
-    // Uniform Blocks
-    const BSDFMaterial &materialProperties = material.getProperties();
-    glBindBuffer(GL_UNIFORM_BUFFER, muMaterialUBO);
-    glBufferData(GL_UNIFORM_BUFFER, sizeof(BSDFMaterial), &materialProperties,
-                 GL_STATIC_DRAW);
-    glBindBufferBase(GL_UNIFORM_BUFFER, muMaterialBlockBinding, muMaterialUBO);
+    glUniform1ui(mShader.getUniformLocation("uMaterialIdx"),
+                 entityMap.materialId);
 
     // Bind VAO
     glBindVertexArray(meshMap.VAO);
