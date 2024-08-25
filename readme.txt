@@ -3,3 +3,4 @@ requirements:
     opengl ES 3.2
     glm
     assimp
+    imgui
