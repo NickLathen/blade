@@ -132,7 +132,7 @@ void initImGui() {
   ImGui_ImplOpenGL3_Init(_IM_glsl_version);
 }
 
-void renderGUI(Uint64 frametime_us) {
+void renderGUI(Uint64 cpu_us, Uint64 gpu_us) {
   ImGuiIO &io = ImGui::GetIO();
   // Render ImGui
   ImGui_ImplOpenGL3_NewFrame();
@@ -140,7 +140,8 @@ void renderGUI(Uint64 frametime_us) {
   ImGui::NewFrame();
 
   ImGui::Begin("Performance Counters");
-  ImGui::Text("frametime=%luus", frametime_us);
+  ImGui::Text("cpu=%luus", cpu_us);
+  ImGui::Text("gpu=%luus", gpu_us);
   ImGui::Text("%.1f FPS (%.3f ms/frame)", io.Framerate, 1000.0f / io.Framerate);
   ImGui::End();
 
@@ -161,10 +162,11 @@ int main(int argc, char *args[]) {
   bool quit = false;
   Uint64 tFrameStart{0};
   Uint64 tFinishDrawCalls{0};
+  Uint64 tFinishRender{0};
   Uint64 countPerMicrosecond = SDL_GetPerformanceFrequency() / 1'000'000;
   while (quit == false) {
-    Uint64 frametime_us =
-        (tFinishDrawCalls - tFrameStart) / (countPerMicrosecond);
+    Uint64 cpu_us = (tFinishDrawCalls - tFrameStart) / (countPerMicrosecond);
+    Uint64 gpu_us = (tFinishRender - tFinishDrawCalls) / (countPerMicrosecond);
     tFrameStart = SDL_GetPerformanceCounter();
     while (SDL_PollEvent(&event)) {
       ImGui_ImplSDL2_ProcessEvent(&event);
@@ -205,12 +207,12 @@ int main(int argc, char *args[]) {
     float aspectRatio = 1.0 * SCREEN_WIDTH / SCREEN_HEIGHT;
 
     s.draw(cameraPos, aspectRatio, actorTransform);
-    renderGUI(frametime_us);
+    renderGUI(cpu_us, gpu_us);
     tFinishDrawCalls = SDL_GetPerformanceCounter();
-
+    glFinish(); // block so we get an accurate frametime
+    tFinishRender = SDL_GetPerformanceCounter();
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
     SDL_GL_SwapWindow(gWindow);
-    glFinish(); // block on window swap so we get an accurate frametime
   }
 
   quit_game(0);
