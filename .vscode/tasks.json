@@ -4,7 +4,9 @@
             "type": "cppbuild",
             "label": "C/C++: g++ build active file",
             "command": "make",
-            "args": [],
+            "args": [
+                "-j8"
+            ],
             "options": {
                 "cwd": "${workspaceFolder}"
             },

@@ -15,25 +15,41 @@ Scene::Scene(const aiScene *scene) {
     _addMaterial(scene->mMaterials[i]);
   }
   processNode(processNode, scene->mRootNode);
+  glGenBuffers(1, &mUBOMaterial);
 };
 
-void Scene::draw(const Shader &shader, const glm::mat4 &viewProjection) {
+void Scene::draw(const Shader &shader, const glm::mat4 &viewProjection,
+                 const glm::mat4 &modelTransform,
+                 GLuint uMaterialBlockBinding) {
   for (uint i = 0; i < mEntities.size(); i++) {
+
     const Entity &entity = mEntities[i];
     const uint materialIdx = mMap_entity_material[i];
     const Material &material = mMaterials[materialIdx];
     const uint meshIdx = mMap_entity_mesh[i];
     const Mesh &mesh = mMeshes[meshIdx];
-    const glm::mat4 model = entity.getTransform();
+
+    // Uniforms
+    const glm::mat4 model = modelTransform * entity.getTransform();
     glm::mat4 mvp = viewProjection * model;
     glUniformMatrix4fv(shader.getUniformLocation("uMVP"), 1, GL_FALSE,
                        glm::value_ptr(mvp));
-    glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(model)));
-    glUniformMatrix3fv(shader.getUniformLocation("uNormalMatrix"), 1, GL_FALSE,
-                       glm::value_ptr(normalMatrix));
-    glUniform3fv(shader.getUniformLocation("uColor"), 1,
-                 glm::value_ptr(material.getDiffuse()));
+    glm::mat3 uWorldMatrix =
+        glm::mat3(model); // no inverse-transpose for orthogonal matrix
+    glUniformMatrix3fv(shader.getUniformLocation("uWorldMatrix"), 1, GL_FALSE,
+                       glm::value_ptr(uWorldMatrix));
+
+    // Uniform Blocks
+    const BSDFMaterial &materialProperties = material.getProperties();
+    glBindBuffer(GL_UNIFORM_BUFFER, mUBOMaterial);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(BSDFMaterial), &materialProperties,
+                 GL_STATIC_DRAW);
+    glBindBufferBase(GL_UNIFORM_BUFFER, uMaterialBlockBinding, mUBOMaterial);
+
+    // Bind VAO
     glBindVertexArray(mMap_mesh_vao[meshIdx]);
+
+    // Draw
     glDrawElements(GL_TRIANGLES, mesh.getNumElements(), GL_UNSIGNED_INT, 0);
   }
   glBindVertexArray(0);

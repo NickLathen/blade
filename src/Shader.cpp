@@ -66,3 +66,14 @@ GLuint Shader::getAttribLocation(const std::string &attribName) const {
 GLuint Shader::getUniformLocation(const std::string &uniformName) const {
   return glGetUniformLocation(_program, uniformName.c_str());
 };
+
+GLuint Shader::getUniformBlockIndex(const std::string &blockName) const {
+  return glGetUniformBlockIndex(_program, blockName.c_str());
+};
+
+void Shader::setUniformBlockBinding(const std::string &blockName,
+                                    GLuint uniformBlockBinding) const {
+  GLuint uniformBlockIndex = getUniformBlockIndex(blockName);
+  return glUniformBlockBinding(_program, uniformBlockIndex,
+                               uniformBlockBinding);
+};

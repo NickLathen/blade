@@ -16,14 +16,27 @@
 // $mat.refracti 1.50
 
 Material::Material(const aiMaterial *material) {
-  aiColor3D pOut{0};
-  aiReturn success = material->Get(AI_MATKEY_COLOR_DIFFUSE, pOut);
-  if (success != aiReturn_SUCCESS) {
-    std::cerr << "Missing diffuse color for material." << std::endl;
-    return;
+  aiColor3D colorOut;
+  float shininessOut;
+  if (material->Get(AI_MATKEY_COLOR_AMBIENT, colorOut) != aiReturn_SUCCESS) {
+    std::cerr << "Missing ambient color for material." << std::endl;
+  } else {
+    memcpy(&mProperties.ambientColor, &colorOut.r, sizeof(float) * 3);
   }
-  for (uint i = 0; i <= 2; i++) {
-    mDiffuse[i] = pOut[i];
+  if (material->Get(AI_MATKEY_COLOR_DIFFUSE, colorOut) != aiReturn_SUCCESS) {
+    std::cerr << "Missing diffuse color for material." << std::endl;
+  } else {
+    memcpy(&mProperties.diffuseColor, &colorOut.r, sizeof(float) * 3);
+  }
+  if (material->Get(AI_MATKEY_COLOR_SPECULAR, colorOut) != aiReturn_SUCCESS) {
+    std::cerr << "Missing specular color for material." << std::endl;
+  } else {
+    memcpy(&mProperties.specularColor, &colorOut.r, sizeof(float) * 3);
+  }
+  if (material->Get(AI_MATKEY_SHININESS, shininessOut) != aiReturn_SUCCESS) {
+    std::cerr << "Missing shininess for material." << std::endl;
+  } else {
+    mProperties.shininess = shininessOut;
   }
 };
-const glm::vec3 &Material::getDiffuse() const { return mDiffuse; }
+const BSDFMaterial &Material::getProperties() const { return mProperties; };

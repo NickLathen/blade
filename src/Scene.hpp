@@ -10,7 +10,8 @@
 class Scene {
 public:
   Scene(const aiScene *scene);
-  void draw(const Shader &shader, const glm::mat4 &viewProjection);
+  void draw(const Shader &shader, const glm::mat4 &viewProjection,
+            const glm::mat4 &modelTransform, GLuint uMaterialBlockBinding);
 
 private:
   uint _addEntity(const aiMesh *mesh, uint materialIdx,
@@ -25,4 +26,5 @@ private:
   std::vector<GLuint> mMap_mesh_vao{};
   std::vector<GLuint> mMap_mesh_vbo{};
   std::vector<GLuint> mMap_mesh_ebo{};
+  GLuint mUBOMaterial{0};
 };
