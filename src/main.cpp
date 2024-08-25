@@ -140,7 +140,7 @@ void renderGUI(Uint64 frametime_us) {
   ImGui::NewFrame();
 
   ImGui::Begin("Performance Counters");
-  ImGui::Text("frametime=%uus", frametime_us);
+  ImGui::Text("frametime=%luus", frametime_us);
   ImGui::Text("%.1f FPS (%.3f ms/frame)", io.Framerate, 1000.0f / io.Framerate);
   ImGui::End();
 
@@ -190,21 +190,21 @@ int main(int argc, char *args[]) {
     static const float bg[] = {0.3f, 0.3f, 0.3f, 1.0f};
     glClearBufferfv(GL_COLOR, 0, bg);
 
-    // rotate model
+    // rotate actor
     float initial = 0;
     float end = M_PIf * 2.0;
     float rotation = (float)SDL_GetTicks64() / 2000 + initial;
     if (rotation > end) {
       rotation = fmodf(rotation, (initial - end)) + initial;
     }
-    glm::mat4 model{1.0};
+    glm::mat4 actorTransform{1.0};
     glm::vec3 yAxis{0, 1, 0};
-    model = glm::rotate(model, rotation, yAxis);
+    actorTransform = glm::rotate(actorTransform, rotation, yAxis);
 
     glm::vec3 cameraPos{2.0, 2.0, 2.0};
     float aspectRatio = 1.0 * SCREEN_WIDTH / SCREEN_HEIGHT;
 
-    s.draw(cameraPos, aspectRatio, model);
+    s.draw(cameraPos, aspectRatio, actorTransform);
     renderGUI(frametime_us);
     tFinishDrawCalls = SDL_GetPerformanceCounter();
 

@@ -6,8 +6,7 @@ Actor::Actor(const aiScene *scene)
   auto processNode = [&](auto &processNode, const aiNode *node) -> void {
     for (uint i = 0; i < node->mNumMeshes; i++) {
       const aiMesh *mesh = scene->mMeshes[node->mMeshes[i]];
-      const glm::mat4 iMatrix{1.0};
-      _addEntity(mesh, mesh->mMaterialIndex, iMatrix);
+      _addEntity(mesh, mesh->mMaterialIndex);
     }
     for (uint i = 0; i < node->mNumChildren; i++) {
       processNode(processNode, node->mChildren[i]);
@@ -30,7 +29,7 @@ Actor::Actor(const aiScene *scene)
 };
 
 void Actor::draw(const glm::vec3 &cameraPos, float aspectRatio,
-                 const glm::mat4 &modelTransform) {
+                 const glm::mat4 &actorTransform) {
   glEnable(GL_CULL_FACE);
   glCullFace(GL_BACK);
   glFrontFace(GL_CCW);
@@ -42,6 +41,16 @@ void Actor::draw(const glm::vec3 &cameraPos, float aspectRatio,
   glm::vec3 uLightDir = glm::vec3(-1, -5, 1);
   glm::vec3 uLightColor = glm::vec3{1, 1, 1};
 
+  glm::vec3 up{0.0f, 1.0f, 0.0f};
+  glm::vec3 cameraTargetPos{0.0f, 0.5f, 0.0f};
+  glm::mat4 view = glm::lookAt(cameraPos, cameraTargetPos, up);
+  glm::mat4 projection =
+      glm::perspective(glm::radians(45.0f), aspectRatio, 0.1f, 100.0f);
+  glm::mat4 mvp = projection * view * actorTransform;
+
+  glm::mat3 uWorldMatrix =
+      glm::mat3(actorTransform); // no inverse-transpose for orthogonal matrix
+  // Set Per Actor Uniforms
   glUniform3fv(mShader.getUniformLocation("uCameraPos"), 1,
                glm::value_ptr(cameraPos));
   glUniform3fv(mShader.getUniformLocation("uAmbientLightColor"), 1,
@@ -50,31 +59,19 @@ void Actor::draw(const glm::vec3 &cameraPos, float aspectRatio,
                glm::value_ptr(uLightDir));
   glUniform3fv(mShader.getUniformLocation("uLightColor"), 1,
                glm::value_ptr(uLightColor));
-
-  glm::vec3 up{0.0f, 1.0f, 0.0f};
-  glm::vec3 cameraTargetPos{0.0f, 0.5f, 0.0f};
-  glm::mat4 view = glm::lookAt(cameraPos, cameraTargetPos, up);
-  glm::mat4 projection =
-      glm::perspective(glm::radians(45.0f), aspectRatio, 0.1f, 100.0f);
-  glm::mat4 viewProjection = projection * view;
-  // Uniform Blocks
+  glUniformMatrix4fv(mShader.getUniformLocation("uMVP"), 1, GL_FALSE,
+                     glm::value_ptr(mvp));
+  glUniformMatrix3fv(mShader.getUniformLocation("uWorldMatrix"), 1, GL_FALSE,
+                     glm::value_ptr(uWorldMatrix));
+  // Bind Per Actor Uniform Blocks
   glBindBufferBase(GL_UNIFORM_BUFFER, muMaterialBlockBinding, muMaterialUBO);
   for (uint i = 0; i < mEntities.size(); i++) {
 
-    const Entity &entity = mEntities[i];
     const EntityMap &entityMap = mEntityMap[i];
     const Mesh &mesh = mMeshes[entityMap.meshId];
     const MeshMap &meshMap = mMeshMap[entityMap.meshId];
 
-    // Uniforms
-    const glm::mat4 model = modelTransform * entity.getTransform();
-    glm::mat4 mvp = viewProjection * model;
-    glUniformMatrix4fv(mShader.getUniformLocation("uMVP"), 1, GL_FALSE,
-                       glm::value_ptr(mvp));
-    glm::mat3 uWorldMatrix =
-        glm::mat3(model); // no inverse-transpose for orthogonal matrix
-    glUniformMatrix3fv(mShader.getUniformLocation("uWorldMatrix"), 1, GL_FALSE,
-                       glm::value_ptr(uWorldMatrix));
+    // Set Per Mesh Uniforms
     glUniform1ui(mShader.getUniformLocation("uMaterialIdx"),
                  entityMap.materialId);
 
@@ -87,12 +84,11 @@ void Actor::draw(const glm::vec3 &cameraPos, float aspectRatio,
   glBindVertexArray(0);
 }
 
-uint Actor::_addEntity(const aiMesh *mesh, uint materialIdx,
-                       const glm::mat4 &transform) {
+uint Actor::_addEntity(const aiMesh *mesh, uint materialIdx) {
   uint meshIdx = _addMesh(mesh);
   mEntityMap.push_back(
       (EntityMap){.meshId = meshIdx, .materialId = materialIdx});
-  mEntities.emplace_back(transform);
+  mEntities.emplace_back();
   return mEntities.size() - 1;
 }
 

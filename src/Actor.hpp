@@ -25,8 +25,7 @@ public:
             const glm::mat4 &modelTransform);
 
 private:
-  uint _addEntity(const aiMesh *mesh, uint materialIdx,
-                  const glm::mat4 &transform);
+  uint _addEntity(const aiMesh *mesh, uint materialIdx);
   uint _addMaterial(const aiMaterial *material);
   uint _addMesh(const aiMesh *mesh);
   std::vector<Entity> mEntities{};
