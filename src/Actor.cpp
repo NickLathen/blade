@@ -2,7 +2,27 @@
 
 Actor::Actor(const aiScene *scene)
     : mShader{"shaders/vertex.glsl", "shaders/fragment.glsl"} {
+  // init shader bindings
   mShader.setUniformBlockBinding("uMaterialBlock", muMaterialBlockBinding);
+
+  // Construct mMaterials
+  for (uint i = 0; i < scene->mNumMaterials; i++) {
+    _addMaterial(scene->mMaterials[i]);
+  }
+
+  // Copy mMaterials to GPU muMaterialUBO
+  uint numMaterials = mMaterials.size();
+  BSDFMaterial materialData[numMaterials];
+  for (uint i = 0; i < numMaterials; i++) {
+    materialData[i] = mMaterials[i].getProperties();
+  }
+  glGenBuffers(1, &muMaterialUBO);
+  glBindBuffer(GL_UNIFORM_BUFFER, muMaterialUBO);
+  glBufferData(GL_UNIFORM_BUFFER, sizeof(materialData), materialData,
+               GL_STATIC_DRAW);
+  glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
+  // Construct mMeshes, mMeshMap
   uint vertexOffset = 0;
   uint elementOffset = 0;
   auto processNode = [&](auto &processNode, const aiNode *node) -> void {
@@ -16,12 +36,9 @@ Actor::Actor(const aiScene *scene)
       processNode(processNode, node->mChildren[i]);
     }
   };
-  for (uint i = 0; i < scene->mNumMaterials; i++) {
-    _addMaterial(scene->mMaterials[i]);
-  }
   processNode(processNode, scene->mRootNode);
 
-  // fill Actor VAO
+  // Construct client vertexBuffer/elementBuffer
   mElementBuffer.reserve(getNumElements());
   mVertexBuffer.reserve(getNumVertices());
   for (uint meshIdx = 0; meshIdx < mMeshes.size(); meshIdx++) {
@@ -37,10 +54,12 @@ Actor::Actor(const aiScene *scene)
                          vertexBuffer.end());
   }
 
+  // VAO - init
   glGenVertexArrays(1, &mVAO);
   glGenBuffers(1, &mVBO);
   glGenBuffers(1, &mEBO);
 
+  // copy vertexBuffer/elementBuffer to GPU mVBO/mEBO
   glBindVertexArray(mVAO);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mEBO);
   glBufferData(GL_ELEMENT_ARRAY_BUFFER,
@@ -59,22 +78,10 @@ Actor::Actor(const aiScene *scene)
                         (GLvoid *)(offsetof(MeshVertexBuffer, aNormal)));
   glVertexAttribIPointer(2, 1, GL_UNSIGNED_INT, sizeof(MeshVertexBuffer),
                          (GLvoid *)(offsetof(MeshVertexBuffer, aMaterialIdx)));
-
-  // fill material buffer
-  uint numMaterials = mMaterials.size();
-  BSDFMaterial materialData[numMaterials];
-  for (uint i = 0; i < numMaterials; i++) {
-    materialData[i] = mMaterials[i].getProperties();
-  }
-  glGenBuffers(1, &muMaterialUBO);
-  glBindBuffer(GL_UNIFORM_BUFFER, muMaterialUBO);
-  glBufferData(GL_UNIFORM_BUFFER, sizeof(materialData), materialData,
-               GL_STATIC_DRAW);
-
   glBindVertexArray(0);
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-  glBindBuffer(GL_UNIFORM_BUFFER, 0);
+  // VAO - end
 };
 
 GLuint Actor::getNumElements() const { return mElementBuffer.size(); };
@@ -86,6 +93,8 @@ void Actor::draw(const glm::vec3 &cameraPos, float aspectRatio,
   glCullFace(GL_BACK);
   glFrontFace(GL_CCW);
   glEnable(GL_DEPTH_TEST);
+
+  glBindVertexArray(mVAO);
 
   mShader.useProgram();
 
@@ -120,19 +129,13 @@ void Actor::draw(const glm::vec3 &cameraPos, float aspectRatio,
   // Bind Per Actor Uniform Blocks
   glBindBufferBase(GL_UNIFORM_BUFFER, muMaterialBlockBinding, muMaterialUBO);
 
-  glBindVertexArray(mVAO);
-  if (true) {
-    glDrawElements(GL_TRIANGLES, getNumElements(), GL_UNSIGNED_INT, 0);
-  } else {
-    // if we want to render individual meshes
-    //  for (uint i = 0; i < mMeshes.size(); i++) {
-    //    const Mesh &mesh = mMeshes[i];
-    //    const MeshMap &meshMap = mMeshMap[i];
-    //    glDrawElements(GL_TRIANGLES, mesh.getNumElements(), GL_UNSIGNED_INT,
-    //                   (void *)(meshMap.elementOffset *
-    //                   sizeof(mElementBuffer[0])));
-    //  }
-  }
+  glDrawElements(GL_TRIANGLES, getNumElements(), GL_UNSIGNED_INT, 0);
+  // if we want to render individual meshes
+  // for (uint i = 0; i < mMeshes.size(); i++) {
+  //   glDrawElements(
+  //       GL_TRIANGLES, mMeshes[i].getNumElements(), GL_UNSIGNED_INT,
+  //       (void *)(mMeshMap[i].elementOffset * sizeof(mElementBuffer[0])));
+  // }
   glBindVertexArray(0);
 }
 

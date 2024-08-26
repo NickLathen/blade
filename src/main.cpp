@@ -113,34 +113,27 @@ Actor import(const std::string &pFile) {
 
 void initImGui() {
   static const char *_IM_glsl_version = "#version 300 es";
-  // Setup Dear ImGui context
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();
   ImGuiIO &io = ImGui::GetIO();
   (void)io;
-  io.ConfigFlags |=
-      ImGuiConfigFlags_NavEnableKeyboard; // Enable Keyboard Controls
-  io.ConfigFlags |=
-      ImGuiConfigFlags_NavEnableGamepad; // Enable Gamepad Controls
+  io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+  io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
 
-  // Setup Dear ImGui style
   ImGui::StyleColorsDark();
-  // ImGui::StyleColorsLight();
 
-  // Setup Platform/Renderer backends
   ImGui_ImplSDL2_InitForOpenGL(gWindow, ctx);
   ImGui_ImplOpenGL3_Init(_IM_glsl_version);
 }
 
-void renderGUI(Uint64 cpu_us, Uint64 gpu_us) {
+void renderGUI(Uint64 cpu_us, Uint64 gui_us, Uint64 gpu_us) {
   ImGuiIO &io = ImGui::GetIO();
-  // Render ImGui
   ImGui_ImplOpenGL3_NewFrame();
   ImGui_ImplSDL2_NewFrame();
   ImGui::NewFrame();
-
   ImGui::Begin("Performance Counters");
   ImGui::Text("cpu=%luus", cpu_us);
+  ImGui::Text("gui=%luus", gui_us);
   ImGui::Text("gpu=%luus", gpu_us);
   ImGui::Text("%.1f FPS (%.3f ms/frame)", io.Framerate, 1000.0f / io.Framerate);
   ImGui::End();
@@ -162,11 +155,13 @@ int main(int argc, char *args[]) {
   bool quit = false;
   Uint64 tFrameStart{0};
   Uint64 tFinishDrawCalls{0};
+  Uint64 tFinishGUIDraw{0};
   Uint64 tFinishRender{0};
   Uint64 countPerMicrosecond = SDL_GetPerformanceFrequency() / 1'000'000;
   while (quit == false) {
     Uint64 cpu_us = (tFinishDrawCalls - tFrameStart) / (countPerMicrosecond);
-    Uint64 gpu_us = (tFinishRender - tFinishDrawCalls) / (countPerMicrosecond);
+    Uint64 gui_us = (tFinishGUIDraw - tFinishDrawCalls) / (countPerMicrosecond);
+    Uint64 gpu_us = (tFinishRender - tFinishGUIDraw) / (countPerMicrosecond);
     tFrameStart = SDL_GetPerformanceCounter();
     while (SDL_PollEvent(&event)) {
       ImGui_ImplSDL2_ProcessEvent(&event);
@@ -207,8 +202,9 @@ int main(int argc, char *args[]) {
     float aspectRatio = 1.0 * SCREEN_WIDTH / SCREEN_HEIGHT;
 
     s.draw(cameraPos, aspectRatio, actorTransform);
-    renderGUI(cpu_us, gpu_us);
     tFinishDrawCalls = SDL_GetPerformanceCounter();
+    renderGUI(cpu_us, gui_us, gpu_us);
+    tFinishGUIDraw = SDL_GetPerformanceCounter();
     glFinish(); // block so we get an accurate frametime
     tFinishRender = SDL_GetPerformanceCounter();
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
