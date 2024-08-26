@@ -3,11 +3,14 @@
 Actor::Actor(const aiScene *scene)
     : mShader{"shaders/vertex.glsl", "shaders/fragment.glsl"} {
   mShader.setUniformBlockBinding("uMaterialBlock", muMaterialBlockBinding);
-
+  uint vertexOffset = 0;
+  uint elementOffset = 0;
   auto processNode = [&](auto &processNode, const aiNode *node) -> void {
     for (uint i = 0; i < node->mNumMeshes; i++) {
       const aiMesh *mesh = scene->mMeshes[node->mMeshes[i]];
-      _addMesh(mesh);
+      uint meshIdx = _addMesh(mesh, vertexOffset, elementOffset);
+      elementOffset += mMeshes[meshIdx].getNumElements();
+      vertexOffset += mMeshes[meshIdx].getNumVertices();
     }
     for (uint i = 0; i < node->mNumChildren; i++) {
       processNode(processNode, node->mChildren[i]);
@@ -17,6 +20,45 @@ Actor::Actor(const aiScene *scene)
     _addMaterial(scene->mMaterials[i]);
   }
   processNode(processNode, scene->mRootNode);
+
+  // fill Actor VAO
+  mElementBuffer.reserve(getNumElements());
+  mVertexBuffer.reserve(getNumVertices());
+  for (uint meshIdx = 0; meshIdx < mMeshes.size(); meshIdx++) {
+    const Mesh &mesh = mMeshes[meshIdx];
+    const MeshMap &meshMap = mMeshMap[meshIdx];
+    const std::vector<GLuint> elementBuffer =
+        mesh.getElementBuffer(meshMap.vertexOffset);
+    const std::vector<MeshVertexBuffer> vertexBuffer =
+        mesh.getVertexBuffer(meshMap.materialId);
+    mElementBuffer.insert(mElementBuffer.end(), elementBuffer.begin(),
+                          elementBuffer.end());
+    mVertexBuffer.insert(mVertexBuffer.end(), vertexBuffer.begin(),
+                         vertexBuffer.end());
+  }
+
+  glGenVertexArrays(1, &mVAO);
+  glGenBuffers(1, &mVBO);
+  glGenBuffers(1, &mEBO);
+
+  glBindVertexArray(mVAO);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mEBO);
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+               mElementBuffer.size() * sizeof(mElementBuffer[0]),
+               &mElementBuffer[0], GL_STATIC_DRAW);
+  glBindBuffer(GL_ARRAY_BUFFER, mVBO);
+  glBufferData(GL_ARRAY_BUFFER, mVertexBuffer.size() * sizeof(mVertexBuffer[0]),
+               &mVertexBuffer[0], GL_STATIC_DRAW);
+  // configure vertex attributes
+  glEnableVertexAttribArray(0);
+  glEnableVertexAttribArray(1);
+  glEnableVertexAttribArray(2);
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertexBuffer),
+                        (GLvoid *)0);
+  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertexBuffer),
+                        (GLvoid *)(offsetof(MeshVertexBuffer, aNormal)));
+  glVertexAttribIPointer(2, 1, GL_UNSIGNED_INT, sizeof(MeshVertexBuffer),
+                         (GLvoid *)(offsetof(MeshVertexBuffer, aMaterialIdx)));
 
   // fill material buffer
   uint numMaterials = mMaterials.size();
@@ -34,6 +76,9 @@ Actor::Actor(const aiScene *scene)
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
   glBindBuffer(GL_UNIFORM_BUFFER, 0);
 };
+
+GLuint Actor::getNumElements() const { return mElementBuffer.size(); };
+GLuint Actor::getNumVertices() const { return mVertexBuffer.size(); };
 
 void Actor::draw(const glm::vec3 &cameraPos, float aspectRatio,
                  const glm::mat4 &actorTransform) {
@@ -75,12 +120,18 @@ void Actor::draw(const glm::vec3 &cameraPos, float aspectRatio,
   // Bind Per Actor Uniform Blocks
   glBindBufferBase(GL_UNIFORM_BUFFER, muMaterialBlockBinding, muMaterialUBO);
 
-  // Render Each Mesh
-  for (uint i = 0; i < mMeshes.size(); i++) {
-    const Mesh &mesh = mMeshes[i];
-    const MeshMap &meshMap = mMeshMap[i];
-    glBindVertexArray(meshMap.VAO);
-    glDrawElements(GL_TRIANGLES, mesh.getNumElements(), GL_UNSIGNED_INT, 0);
+  glBindVertexArray(mVAO);
+  if (true) {
+    glDrawElements(GL_TRIANGLES, getNumElements(), GL_UNSIGNED_INT, 0);
+  } else {
+    // if we want to render individual meshes
+    //  for (uint i = 0; i < mMeshes.size(); i++) {
+    //    const Mesh &mesh = mMeshes[i];
+    //    const MeshMap &meshMap = mMeshMap[i];
+    //    glDrawElements(GL_TRIANGLES, mesh.getNumElements(), GL_UNSIGNED_INT,
+    //                   (void *)(meshMap.elementOffset *
+    //                   sizeof(mElementBuffer[0])));
+    //  }
   }
   glBindVertexArray(0);
 }
@@ -90,15 +141,12 @@ uint Actor::_addMaterial(const aiMaterial *material) {
   return mMaterials.size() - 1;
 };
 
-uint Actor::_addMesh(const aiMesh *mesh) {
+uint Actor::_addMesh(const aiMesh *mesh, GLuint vertexOffset,
+                     GLuint elementOffset) {
   mMeshes.emplace_back(mesh);
   uint meshIdx = mMeshes.size() - 1;
-  GLuint VAO, VBO, EBO;
-  glGenVertexArrays(1, &VAO);
-  glGenBuffers(1, &VBO);
-  glGenBuffers(1, &EBO);
-  mMeshes[meshIdx].packVAO(VAO, VBO, EBO, mesh->mMaterialIndex);
-  mMeshMap.push_back((MeshMap){
-      .VAO = VAO, .VBO = VBO, .EBO = EBO, .materialId = mesh->mMaterialIndex});
+  mMeshMap.push_back((MeshMap){.materialId = mesh->mMaterialIndex,
+                               .vertexOffset = vertexOffset,
+                               .elementOffset = elementOffset});
   return meshIdx;
 }

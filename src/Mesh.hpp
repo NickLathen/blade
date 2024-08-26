@@ -14,7 +14,8 @@ public:
   Mesh(const aiMesh *mesh);
   GLsizei getNumElements() const;
   GLsizei getNumVertices() const;
-  void packVAO(GLuint VAO, GLuint VBO, GLuint EBO, GLuint materialIdx) const;
+  const std::vector<GLuint> getElementBuffer(uint vertexOffset) const;
+  const std::vector<MeshVertexBuffer> getVertexBuffer(GLuint materialIdx) const;
 
 private:
   std::vector<GLfloat> mVertices{};

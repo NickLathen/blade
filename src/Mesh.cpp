@@ -19,37 +19,25 @@ Mesh::Mesh(const aiMesh *mesh)
 };
 GLsizei Mesh::getNumElements() const { return mFaces.size(); }
 GLsizei Mesh::getNumVertices() const { return mVertices.size() / 3; }
-
-void Mesh::packVAO(GLuint VAO, GLuint VBO, GLuint EBO,
-                   GLuint materialIdx) const {
-  uint sz = mVertices.size() / 3;
-  MeshVertexBuffer bufferData[sz];
-  for (uint i = 0; i < sz; i++) {
-    uint offset = i * 3;
-    memcpy(&bufferData[i], &mVertices[offset], sizeof(glm::vec3));
-    memcpy(&bufferData[i].aNormal, &mNormals[offset], sizeof(glm::vec3));
-    bufferData[i].aMaterialIdx = materialIdx;
+const std::vector<GLuint> Mesh::getElementBuffer(uint vertexOffset) const {
+  std::vector<GLuint> elementBuffer{};
+  elementBuffer.reserve(getNumElements());
+  for (GLuint idx : mFaces) {
+    elementBuffer.push_back(idx + vertexOffset);
   }
-  glBindVertexArray(VAO);
-
-  // write buffers
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-  glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint) * mFaces.size(),
-               &mFaces[0], GL_STATIC_DRAW);
-  glBindBuffer(GL_ARRAY_BUFFER, VBO);
-  glBufferData(GL_ARRAY_BUFFER, sizeof(bufferData), bufferData, GL_STATIC_DRAW);
-
-  glEnableVertexAttribArray(0);
-  glEnableVertexAttribArray(1);
-  glEnableVertexAttribArray(2);
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertexBuffer),
-                        (GLvoid *)0);
-  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertexBuffer),
-                        (GLvoid *)(offsetof(MeshVertexBuffer, aNormal)));
-  glVertexAttribIPointer(2, 1, GL_UNSIGNED_INT, sizeof(MeshVertexBuffer),
-                         (GLvoid *)(offsetof(MeshVertexBuffer, aMaterialIdx)));
-
-  glBindVertexArray(0);
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-}
+  return elementBuffer;
+};
+const std::vector<MeshVertexBuffer>
+Mesh::getVertexBuffer(GLuint materialIdx) const {
+  uint sz = mVertices.size() / 3;
+  std::vector<MeshVertexBuffer> vertexBufferData{};
+  vertexBufferData.reserve(getNumVertices());
+  for (uint i = 0; i < sz; i++) {
+    vertexBufferData.push_back({});
+    uint offset = i * 3;
+    memcpy(&vertexBufferData[i], &mVertices[offset], sizeof(glm::vec3));
+    memcpy(&vertexBufferData[i].aNormal, &mNormals[offset], sizeof(glm::vec3));
+    vertexBufferData[i].aMaterialIdx = materialIdx;
+  }
+  return vertexBufferData;
+};
