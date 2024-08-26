@@ -3,10 +3,11 @@
 Actor::Actor(const aiScene *scene)
     : mShader{"shaders/vertex.glsl", "shaders/fragment.glsl"} {
   mShader.setUniformBlockBinding("uMaterialBlock", muMaterialBlockBinding);
+
   auto processNode = [&](auto &processNode, const aiNode *node) -> void {
     for (uint i = 0; i < node->mNumMeshes; i++) {
       const aiMesh *mesh = scene->mMeshes[node->mMeshes[i]];
-      _addEntity(mesh, mesh->mMaterialIndex);
+      _addMesh(mesh);
     }
     for (uint i = 0; i < node->mNumChildren; i++) {
       processNode(processNode, node->mChildren[i]);
@@ -17,6 +18,7 @@ Actor::Actor(const aiScene *scene)
   }
   processNode(processNode, scene->mRootNode);
 
+  // fill material buffer
   uint numMaterials = mMaterials.size();
   BSDFMaterial materialData[numMaterials];
   for (uint i = 0; i < numMaterials; i++) {
@@ -26,6 +28,11 @@ Actor::Actor(const aiScene *scene)
   glBindBuffer(GL_UNIFORM_BUFFER, muMaterialUBO);
   glBufferData(GL_UNIFORM_BUFFER, sizeof(materialData), materialData,
                GL_STATIC_DRAW);
+
+  glBindVertexArray(0);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+  glBindBuffer(GL_UNIFORM_BUFFER, 0);
 };
 
 void Actor::draw(const glm::vec3 &cameraPos, float aspectRatio,
@@ -50,6 +57,7 @@ void Actor::draw(const glm::vec3 &cameraPos, float aspectRatio,
 
   glm::mat3 uWorldMatrix =
       glm::mat3(actorTransform); // no inverse-transpose for orthogonal matrix
+
   // Set Per Actor Uniforms
   glUniform3fv(mShader.getUniformLocation("uCameraPos"), 1,
                glm::value_ptr(cameraPos));
@@ -63,29 +71,18 @@ void Actor::draw(const glm::vec3 &cameraPos, float aspectRatio,
                      glm::value_ptr(mvp));
   glUniformMatrix3fv(mShader.getUniformLocation("uWorldMatrix"), 1, GL_FALSE,
                      glm::value_ptr(uWorldMatrix));
+
   // Bind Per Actor Uniform Blocks
   glBindBufferBase(GL_UNIFORM_BUFFER, muMaterialBlockBinding, muMaterialUBO);
-  for (uint i = 0; i < mEntities.size(); i++) {
 
-    const EntityMap &entityMap = mEntityMap[i];
-    const Mesh &mesh = mMeshes[entityMap.meshId];
-    const MeshMap &meshMap = mMeshMap[entityMap.meshId];
-
-    // Bind VAO
+  // Render Each Mesh
+  for (uint i = 0; i < mMeshes.size(); i++) {
+    const Mesh &mesh = mMeshes[i];
+    const MeshMap &meshMap = mMeshMap[i];
     glBindVertexArray(meshMap.VAO);
-
-    // Draw
     glDrawElements(GL_TRIANGLES, mesh.getNumElements(), GL_UNSIGNED_INT, 0);
   }
   glBindVertexArray(0);
-}
-
-uint Actor::_addEntity(const aiMesh *mesh, uint materialIdx) {
-  uint meshIdx = _addMesh(mesh);
-  mEntityMap.push_back(
-      (EntityMap){.meshId = meshIdx, .materialId = materialIdx});
-  mEntities.emplace_back();
-  return mEntities.size() - 1;
 }
 
 uint Actor::_addMaterial(const aiMaterial *material) {
@@ -95,12 +92,13 @@ uint Actor::_addMaterial(const aiMaterial *material) {
 
 uint Actor::_addMesh(const aiMesh *mesh) {
   mMeshes.emplace_back(mesh);
-  uint idx = mMeshes.size() - 1;
+  uint meshIdx = mMeshes.size() - 1;
   GLuint VAO, VBO, EBO;
   glGenVertexArrays(1, &VAO);
   glGenBuffers(1, &VBO);
   glGenBuffers(1, &EBO);
-  mMeshes[idx].packVAO(VAO, VBO, EBO, mesh->mMaterialIndex);
-  mMeshMap.push_back((MeshMap){.VAO = VAO, .VBO = VBO, .EBO = EBO});
-  return idx;
+  mMeshes[meshIdx].packVAO(VAO, VBO, EBO, mesh->mMaterialIndex);
+  mMeshMap.push_back((MeshMap){
+      .VAO = VAO, .VBO = VBO, .EBO = EBO, .materialId = mesh->mMaterialIndex});
+  return meshIdx;
 }

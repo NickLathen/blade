@@ -1,5 +1,4 @@
 #pragma once
-#include "Entity.hpp"
 #include "Material.hpp"
 #include "Mesh.hpp"
 #include "Shader.hpp"
@@ -7,15 +6,11 @@
 #include <assimp/scene.h>
 #include <vector>
 
-struct EntityMap {
-  uint meshId;
-  uint materialId;
-};
-
 struct MeshMap {
   GLuint VAO;
   GLuint VBO;
   GLuint EBO;
+  GLuint materialId;
 };
 
 class Actor {
@@ -25,13 +20,10 @@ public:
             const glm::mat4 &modelTransform);
 
 private:
-  uint _addEntity(const aiMesh *mesh, uint materialIdx);
   uint _addMaterial(const aiMaterial *material);
   uint _addMesh(const aiMesh *mesh);
-  std::vector<Entity> mEntities{};
   std::vector<Mesh> mMeshes{};
   std::vector<Material> mMaterials{};
-  std::vector<EntityMap> mEntityMap{};
   std::vector<MeshMap> mMeshMap{};
   Shader mShader;
   GLuint muMaterialBlockBinding{0};

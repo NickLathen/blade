@@ -18,15 +18,12 @@ Mesh::Mesh(const aiMesh *mesh)
   }
 };
 GLsizei Mesh::getNumElements() const { return mFaces.size(); }
+GLsizei Mesh::getNumVertices() const { return mVertices.size() / 3; }
+
 void Mesh::packVAO(GLuint VAO, GLuint VBO, GLuint EBO,
                    GLuint materialIdx) const {
-  struct VBuff {
-    glm::vec3 aPos;
-    glm::vec3 aNormal;
-    glm::u32 aMaterialIdx;
-  };
   uint sz = mVertices.size() / 3;
-  VBuff bufferData[sz];
+  MeshVertexBuffer bufferData[sz];
   for (uint i = 0; i < sz; i++) {
     uint offset = i * 3;
     memcpy(&bufferData[i], &mVertices[offset], sizeof(glm::vec3));
@@ -34,19 +31,23 @@ void Mesh::packVAO(GLuint VAO, GLuint VBO, GLuint EBO,
     bufferData[i].aMaterialIdx = materialIdx;
   }
   glBindVertexArray(VAO);
-  glEnableVertexAttribArray(0);
-  glEnableVertexAttribArray(1);
-  glEnableVertexAttribArray(2);
-  glBindBuffer(GL_ARRAY_BUFFER, VBO);
-  glBufferData(GL_ARRAY_BUFFER, sizeof(bufferData), bufferData, GL_STATIC_DRAW);
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(VBuff), (GLvoid *)0);
-  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(VBuff),
-                        (GLvoid *)(offsetof(VBuff, aNormal)));
-  glVertexAttribIPointer(2, 1, GL_UNSIGNED_INT, sizeof(VBuff),
-                         (GLvoid *)(offsetof(VBuff, aMaterialIdx)));
+
+  // write buffers
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
   glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint) * mFaces.size(),
                &mFaces[0], GL_STATIC_DRAW);
+  glBindBuffer(GL_ARRAY_BUFFER, VBO);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(bufferData), bufferData, GL_STATIC_DRAW);
+
+  glEnableVertexAttribArray(0);
+  glEnableVertexAttribArray(1);
+  glEnableVertexAttribArray(2);
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertexBuffer),
+                        (GLvoid *)0);
+  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertexBuffer),
+                        (GLvoid *)(offsetof(MeshVertexBuffer, aNormal)));
+  glVertexAttribIPointer(2, 1, GL_UNSIGNED_INT, sizeof(MeshVertexBuffer),
+                         (GLvoid *)(offsetof(MeshVertexBuffer, aMaterialIdx)));
 
   glBindVertexArray(0);
   glBindBuffer(GL_ARRAY_BUFFER, 0);

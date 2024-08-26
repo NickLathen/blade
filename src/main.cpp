@@ -80,7 +80,7 @@ void initGLWindow() {
     quit_game(1);
   }
   ctx = SDL_GL_CreateContext(gWindow);
-  if (SDL_GL_SetSwapInterval(0) < 0) { // enable vsync
+  if (SDL_GL_SetSwapInterval(1) < 0) { // enable vsync
     std::cout << "SDL could not SetSwapInterval: " << SDL_GetError()
               << std::endl;
   }
