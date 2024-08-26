@@ -4,6 +4,7 @@
 #include "Shader.hpp"
 #include "gl.hpp"
 #include <assimp/scene.h>
+#include <glm/glm.hpp>
 #include <vector>
 
 struct MeshMap {
@@ -12,11 +13,20 @@ struct MeshMap {
   GLuint elementOffset;
 };
 
+struct Camera {
+  glm::vec3 up{0.0, 1.0, 0.0};
+  glm::vec3 position{0};
+  glm::vec3 target{0};
+  float aspectRatio{};
+  float fov{};
+  float near{};
+  float far{};
+};
+
 class Actor {
 public:
   Actor(const aiScene *scene);
-  void draw(const glm::vec3 &cameraPos, float aspectRatio,
-            const glm::mat4 &modelTransform);
+  void draw(const Camera &camera, const glm::mat4 &actorTransform);
   GLuint getNumElements() const;
   GLuint getNumVertices() const;
 

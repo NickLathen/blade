@@ -38,10 +38,11 @@ void GL_APIENTRY MessageCallback(GLenum source, GLenum type, GLuint id,
 int SCREEN_WIDTH = 1600;
 int SCREEN_HEIGHT = 1200;
 
-static void handle_resize(SDL_Event *event) {
+static void handle_resize(SDL_Event *event, Camera &camera) {
   SCREEN_WIDTH = event->window.data1;
   SCREEN_HEIGHT = event->window.data2;
   glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+  camera.aspectRatio = 1.0f * SCREEN_WIDTH / SCREEN_HEIGHT;
 }
 
 SDL_Window *gWindow = NULL;
@@ -126,7 +127,7 @@ void initImGui() {
   ImGui_ImplOpenGL3_Init(_IM_glsl_version);
 }
 
-void renderGUI(Uint64 cpu_us, Uint64 gui_us, Uint64 gpu_us) {
+void renderGUI(Uint64 cpu_us, Uint64 gui_us, Uint64 gpu_us, Camera &camera) {
   ImGuiIO &io = ImGui::GetIO();
   ImGui_ImplOpenGL3_NewFrame();
   ImGui_ImplSDL2_NewFrame();
@@ -135,6 +136,14 @@ void renderGUI(Uint64 cpu_us, Uint64 gui_us, Uint64 gpu_us) {
   ImGui::Text("cpu=%luus", cpu_us);
   ImGui::Text("gui=%luus", gui_us);
   ImGui::Text("gpu=%luus", gpu_us);
+  ImGui::DragFloat3("camera.position", &camera.position[0], 0.1f, -10.0f, 10.0f,
+                    "%.2f");
+  ImGui::DragFloat3("camera.target", &camera.target[0], 0.1f, -10.0f, 10.0f,
+                    "%.2f");
+  ImGui::DragFloat("camera.fov", &camera.fov, 1.0f, 0.0f, 120.0f);
+  ImGui::DragFloat("camera.near", &camera.near, 0.1f, 0.1f, 10.0f);
+  ImGui::DragFloat("camera.far", &camera.far, 0.5f, 1.0f, 100.0f);
+
   ImGui::Text("%.1f FPS (%.3f ms/frame)", io.Framerate, 1000.0f / io.Framerate);
   ImGui::End();
 
@@ -150,6 +159,13 @@ int main(int argc, char *args[]) {
   initImGui();
 
   Actor s = import("assets/fullroom/fullroom.obj");
+  Camera camera{.up = glm::vec3{0, 1, 0},
+                .position = glm::vec3{2.0, 2.0, 2.0},
+                .target = glm::vec3{0.0f, 0.5f, 0.0f},
+                .aspectRatio = 1.0f * SCREEN_WIDTH / SCREEN_HEIGHT,
+                .fov = 45,
+                .near = .1f,
+                .far = 100.0f};
 
   SDL_Event event;
   bool quit = false;
@@ -176,9 +192,36 @@ int main(int argc, char *args[]) {
           break;
         }
         break;
+      case SDL_MOUSEWHEEL: {
+        // zoom
+        glm::vec3 direction = camera.position - camera.target;
+        float length = glm::length(direction);
+        length -= event.motion.x * 0.1f;
+        length = std::max<float>(length, 0.01f);
+        glm::vec3 unitDirection = normalize(direction);
+        camera.position = camera.target + (length * unitDirection);
+        break;
+      }
+      case SDL_MOUSEMOTION: {
+        int x, y;
+        Uint32 mouseButtons = SDL_GetMouseState(&x, &y);
+        if (mouseButtons & SDL_BUTTON_MMASK) {
+          // view orbit
+          camera.position.y += event.motion.yrel * 0.01f;
+          glm::vec3 direction = camera.position - camera.target;
+          glm::vec2 directionXZ{direction.x, direction.z};
+          float length = glm::length(directionXZ);
+          glm::vec2 unitDirection = glm::normalize(directionXZ);
+          float angle = atan2(unitDirection.y, unitDirection.x);
+          angle += event.motion.xrel * 0.005f;
+          camera.position.x = camera.target.x + length * cosf32(angle);
+          camera.position.z = camera.target.z + length * sinf32(angle);
+        }
+        break;
+      }
       case SDL_WINDOWEVENT:
         if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
-          handle_resize(&event);
+          handle_resize(&event, camera);
         }
         break;
       }
@@ -187,23 +230,13 @@ int main(int argc, char *args[]) {
     static const float bg[] = {0.3f, 0.3f, 0.3f, 1.0f};
     glClearBufferfv(GL_COLOR, 0, bg);
 
-    // rotate actor
-    float initial = 0;
-    float end = M_PIf * 2.0;
-    float rotation = (float)SDL_GetTicks64() / 2000 + initial;
-    if (rotation > end) {
-      rotation = fmodf(rotation, (initial - end)) + initial;
-    }
     glm::mat4 actorTransform{1.0};
     glm::vec3 yAxis{0, 1, 0};
-    actorTransform = glm::rotate(actorTransform, rotation, yAxis);
+    actorTransform = glm::rotate(actorTransform, M_PIf * .5f, yAxis);
 
-    glm::vec3 cameraPos{2.0, 2.0, 2.0};
-    float aspectRatio = 1.0 * SCREEN_WIDTH / SCREEN_HEIGHT;
-
-    s.draw(cameraPos, aspectRatio, actorTransform);
+    s.draw(camera, actorTransform);
     tFinishDrawCalls = SDL_GetPerformanceCounter();
-    renderGUI(cpu_us, gui_us, gpu_us);
+    renderGUI(cpu_us, gui_us, gpu_us, camera);
     tFinishGUIDraw = SDL_GetPerformanceCounter();
     glFinish(); // block so we get an accurate frametime
     tFinishRender = SDL_GetPerformanceCounter();

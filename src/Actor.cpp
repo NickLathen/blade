@@ -87,8 +87,7 @@ Actor::Actor(const aiScene *scene)
 GLuint Actor::getNumElements() const { return mElementBuffer.size(); };
 GLuint Actor::getNumVertices() const { return mVertexBuffer.size(); };
 
-void Actor::draw(const glm::vec3 &cameraPos, float aspectRatio,
-                 const glm::mat4 &actorTransform) {
+void Actor::draw(const Camera &camera, const glm::mat4 &actorTransform) {
   glEnable(GL_CULL_FACE);
   glCullFace(GL_BACK);
   glFrontFace(GL_CCW);
@@ -102,11 +101,9 @@ void Actor::draw(const glm::vec3 &cameraPos, float aspectRatio,
   glm::vec3 uLightDir = glm::vec3(-1, -5, 1);
   glm::vec3 uLightColor = glm::vec3{1, 1, 1};
 
-  glm::vec3 up{0.0f, 1.0f, 0.0f};
-  glm::vec3 cameraTargetPos{0.0f, 0.5f, 0.0f};
-  glm::mat4 view = glm::lookAt(cameraPos, cameraTargetPos, up);
-  glm::mat4 projection =
-      glm::perspective(glm::radians(45.0f), aspectRatio, 0.1f, 100.0f);
+  glm::mat4 view = glm::lookAt(camera.position, camera.target, camera.up);
+  glm::mat4 projection = glm::perspective(
+      glm::radians(camera.fov), camera.aspectRatio, camera.near, camera.far);
   glm::mat4 mvp = projection * view * actorTransform;
 
   glm::mat3 uWorldMatrix =
@@ -114,7 +111,7 @@ void Actor::draw(const glm::vec3 &cameraPos, float aspectRatio,
 
   // Set Per Actor Uniforms
   glUniform3fv(mShader.getUniformLocation("uCameraPos"), 1,
-               glm::value_ptr(cameraPos));
+               glm::value_ptr(camera.position));
   glUniform3fv(mShader.getUniformLocation("uAmbientLightColor"), 1,
                glm::value_ptr(uAmbientLightColor));
   glUniform3fv(mShader.getUniformLocation("uLightDir"), 1,
