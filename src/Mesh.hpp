@@ -7,7 +7,7 @@ class Mesh {
 public:
   Mesh(const aiMesh *mesh);
   GLsizei getNumElements() const;
-  void packVAO(GLuint VAO, GLuint VBO, GLuint EBO) const;
+  void packVAO(GLuint VAO, GLuint VBO, GLuint EBO, GLuint materialIdx) const;
 
 private:
   std::vector<GLfloat> mVertices{};

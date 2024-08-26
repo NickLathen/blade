@@ -71,10 +71,6 @@ void Actor::draw(const glm::vec3 &cameraPos, float aspectRatio,
     const Mesh &mesh = mMeshes[entityMap.meshId];
     const MeshMap &meshMap = mMeshMap[entityMap.meshId];
 
-    // Set Per Mesh Uniforms
-    glUniform1ui(mShader.getUniformLocation("uMaterialIdx"),
-                 entityMap.materialId);
-
     // Bind VAO
     glBindVertexArray(meshMap.VAO);
 
@@ -104,7 +100,7 @@ uint Actor::_addMesh(const aiMesh *mesh) {
   glGenVertexArrays(1, &VAO);
   glGenBuffers(1, &VBO);
   glGenBuffers(1, &EBO);
-  mMeshes[idx].packVAO(VAO, VBO, EBO);
+  mMeshes[idx].packVAO(VAO, VBO, EBO, mesh->mMaterialIndex);
   mMeshMap.push_back((MeshMap){.VAO = VAO, .VBO = VBO, .EBO = EBO});
   return idx;
 }

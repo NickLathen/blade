@@ -7,8 +7,6 @@ uniform vec3 uAmbientLightColor;
 uniform vec3 uLightDir;
 uniform vec3 uLightColor;
 
-uniform mediump uint uMaterialIdx;
-
 //Materials UBO
 #define NUM_MATERIALS 256
 struct Material {
@@ -23,6 +21,7 @@ layout(std140) uniform uMaterialBlock {
 
 layout (location = 0) in vec3 aPos;
 layout (location = 1) in vec3 aNormal;
+layout (location = 2) in uint aMaterialIdx;
 out vec4 color;
 void main() {
     vec3 worldPos = uWorldMatrix * aPos;
@@ -30,7 +29,7 @@ void main() {
     vec3 viewDir = normalize(worldPos - uCameraPos);
     vec3 lightDir = normalize(uLightDir);
     vec3 reflectDir = normalize(reflect(lightDir, normalDir));
-    Material material = uMaterial.materials[uMaterialIdx];
+    Material material = uMaterial.materials[aMaterialIdx];
 
     vec3 ambientColor = uAmbientLightColor;
     vec3 diffuseColor = max(dot(normalDir, -lightDir), 0.0) *
