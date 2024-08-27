@@ -22,10 +22,18 @@ struct Camera {
   float far{};
 };
 
+struct Light {
+  glm::vec3 uAmbientLightColor;
+  glm::vec3 uLightDir;
+  glm::vec3 uLightPos;
+  glm::vec3 uLightColor;
+};
+
 class Actor {
 public:
   Actor(const aiScene *scene);
-  void draw(const Camera &camera, const glm::mat4 &actorTransform);
+  void draw(const Camera &camera, const Light &light,
+            const glm::mat4 &actorTransform);
   GLuint getNumElements() const;
   GLuint getNumVertices() const;
 

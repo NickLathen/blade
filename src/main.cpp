@@ -127,7 +127,8 @@ void initImGui() {
   ImGui_ImplOpenGL3_Init(_IM_glsl_version);
 }
 
-void renderGUI(Uint64 cpu_us, Uint64 gui_us, Uint64 gpu_us, Camera &camera) {
+void renderGUI(Uint64 cpu_us, Uint64 gui_us, Uint64 gpu_us, Camera &camera,
+               Light &light) {
   ImGuiIO &io = ImGui::GetIO();
   ImGui_ImplOpenGL3_NewFrame();
   ImGui_ImplSDL2_NewFrame();
@@ -136,10 +137,13 @@ void renderGUI(Uint64 cpu_us, Uint64 gui_us, Uint64 gpu_us, Camera &camera) {
   ImGui::Text("cpu=%luus", cpu_us);
   ImGui::Text("gui=%luus", gui_us);
   ImGui::Text("gpu=%luus", gpu_us);
-  ImGui::DragFloat4("materix0", &camera.transform[0][0], .01f, -5.0f, 5.0f);
-  ImGui::DragFloat4("materix1", &camera.transform[1][0], .01f, -5.0f, 5.0f);
-  ImGui::DragFloat4("materix2", &camera.transform[2][0], .01f, -5.0f, 5.0f);
-  ImGui::DragFloat4("materix3", &camera.transform[3][0], .01f, -5.0f, 5.0f);
+  ImGui::DragFloat4("matrix0", &camera.transform[0][0], .01f, -5.0f, 5.0f);
+  ImGui::DragFloat4("matrix1", &camera.transform[1][0], .01f, -5.0f, 5.0f);
+  ImGui::DragFloat4("matrix2", &camera.transform[2][0], .01f, -5.0f, 5.0f);
+  ImGui::DragFloat4("matrix3", &camera.transform[3][0], .01f, -5.0f, 5.0f);
+  ImGui::DragFloat3("light.uLightDir", &light.uLightDir[0], .01f, -10.0, 10.0f);
+  ImGui::DragFloat3("light.uLightPos", &light.uLightPos[0], .01f, -10.0f,
+                    10.0f);
   ImGui::DragFloat("camera.fov", &camera.fov, 1.0f, 0.0f, 120.0f);
   ImGui::DragFloat("camera.near", &camera.near, 0.1f, 0.1f, 10.0f);
   ImGui::DragFloat("camera.far", &camera.far, 0.5f, 1.0f, 100.0f);
@@ -196,6 +200,22 @@ int main(int argc, char *args[]) {
   initImGui();
 
   Actor s = import("assets/fullroom/fullroom.obj");
+
+  glm::vec3 uAmbientLightColor = glm::vec3{.1f, .1f, .1f};
+  glm::vec3 uLightDir = glm::vec3(-2.6f, 2.8f, 1.4f);
+  glm::vec3 uLightPos = glm::vec3(-2.6f, 2.8f, 1.4f);
+  glm::vec3 uLightColor = glm::vec3{1.0f, 1.0f, 1.0f};
+  Light light{uAmbientLightColor, uLightDir, uLightPos, uLightColor};
+  Shader lightShader{"shaders/light_icon_vertex.glsl",
+                     "shaders/light_icon_fragment.glsl"};
+  lightShader.useProgram();
+  GLuint lVAO;
+  glGenVertexArrays(1, &lVAO);
+  glBindVertexArray(lVAO);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+  glBindVertexArray(0);
+
   glm::vec3 initialCameraTarget = glm::vec3{0.0f, 0.0f, 0.0f};
   glm::mat4 transform{glm::lookAt(glm::vec3{0.0, 5.0, 5.0}, // position
                                   initialCameraTarget,      // target
@@ -206,7 +226,6 @@ int main(int argc, char *args[]) {
                 .fov = 45,
                 .near = .1f,
                 .far = 100.0f};
-
   SDL_Event event;
   bool quit = false;
   Uint64 tFrameStart{0};
@@ -267,13 +286,22 @@ int main(int argc, char *args[]) {
     static const float bg[] = {0.3f, 0.3f, 0.3f, 1.0f};
     glClearBufferfv(GL_COLOR, 0, bg);
 
-    glm::mat4 actorTransform{1.0};
-    glm::vec3 yAxis{0, 1, 0};
-    actorTransform = glm::rotate(actorTransform, M_PIf * .5f, yAxis);
+    glm::mat4 projection = glm::perspective(
+        glm::radians(camera.fov), camera.aspectRatio, camera.near, camera.far);
+    glm::mat4 mvp = projection * camera.transform;
 
-    s.draw(camera, actorTransform);
+    glm::mat4 actorTransform{1.0};
+    s.draw(camera, light, actorTransform);
+    lightShader.useProgram();
+    glBindVertexArray(lVAO);
+    glUniform3fv(lightShader.getUniformLocation("uLightPos"), 1,
+                 glm::value_ptr(light.uLightPos));
+    glUniformMatrix4fv(lightShader.getUniformLocation("uMVP"), 1, GL_FALSE,
+                       glm::value_ptr(mvp));
+    glDrawArrays(GL_POINTS, 0, 1);
+    glBindVertexArray(0);
     tFinishDrawCalls = SDL_GetPerformanceCounter();
-    renderGUI(cpu_us, gui_us, gpu_us, camera);
+    renderGUI(cpu_us, gui_us, gpu_us, camera, light);
     tFinishGUIDraw = SDL_GetPerformanceCounter();
     glFinish(); // block so we get an accurate frametime
     tFinishRender = SDL_GetPerformanceCounter();

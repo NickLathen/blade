@@ -88,7 +88,8 @@ Actor::Actor(const aiScene *scene)
 GLuint Actor::getNumElements() const { return mElementBuffer.size(); };
 GLuint Actor::getNumVertices() const { return mVertexBuffer.size(); };
 
-void Actor::draw(const Camera &camera, const glm::mat4 &actorTransform) {
+void Actor::draw(const Camera &camera, const Light &light,
+                 const glm::mat4 &actorTransform) {
   glEnable(GL_CULL_FACE);
   glCullFace(GL_BACK);
   glFrontFace(GL_CCW);
@@ -97,11 +98,6 @@ void Actor::draw(const Camera &camera, const glm::mat4 &actorTransform) {
   glBindVertexArray(mVAO);
 
   mShader.useProgram();
-
-  glm::vec3 uAmbientLightColor = glm::vec3{.2f, .2f, .2f};
-  glm::vec3 uLightDir = glm::vec3(1.0f, 1.0f, 0.5f);
-  glm::vec3 uLightPos = glm::vec3(1.0f, 1.0f, 0.5f);
-  glm::vec3 uLightColor = glm::vec3{1.0f, 1.0f, 1.0f};
 
   glm::vec3 uCameraPos = getCameraPos(camera.transform);
   glm::mat4 projection = glm::perspective(
@@ -115,13 +111,13 @@ void Actor::draw(const Camera &camera, const glm::mat4 &actorTransform) {
   glUniform3fv(mShader.getUniformLocation("uCameraPos"), 1,
                glm::value_ptr(uCameraPos));
   glUniform3fv(mShader.getUniformLocation("uAmbientLightColor"), 1,
-               glm::value_ptr(uAmbientLightColor));
+               glm::value_ptr(light.uAmbientLightColor));
   glUniform3fv(mShader.getUniformLocation("uLightDir"), 1,
-               glm::value_ptr(uLightDir));
+               glm::value_ptr(light.uLightDir));
   glUniform3fv(mShader.getUniformLocation("uLightPos"), 1,
-               glm::value_ptr(uLightPos));
+               glm::value_ptr(light.uLightPos));
   glUniform3fv(mShader.getUniformLocation("uLightColor"), 1,
-               glm::value_ptr(uLightColor));
+               glm::value_ptr(light.uLightColor));
   glUniformMatrix4fv(mShader.getUniformLocation("uMVP"), 1, GL_FALSE,
                      glm::value_ptr(mvp));
   glUniformMatrix3fv(mShader.getUniformLocation("uWorldMatrix"), 1, GL_FALSE,

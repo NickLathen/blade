@@ -33,7 +33,7 @@ void main() {
   vec3 specLightDir = normalize(uLightPos - worldPos);
 
   //diffuse color
-  vec3 diffuseColor = max(dot(nNormalDir, lightDir), 0.0) *
+  vec3 diffuseColor = max(dot(nNormalDir, specLightDir), 0.0) *
                       uLightColor;
 
   //specular
@@ -44,7 +44,7 @@ void main() {
   float specularFactor = max(dot(reflectDir, -viewDir), 0.0);
   specularFactor = pow(specularFactor, uSpecularPower) * shininess;
 
-  vec3 finalColor = ambientColor * material.ambientColor * material.diffuseColor +
+  vec3 finalColor = ambientColor * material.ambientColor * material.diffuseColor * 0.0f +
                     diffuseColor * material.diffuseColor +
                     specularFactor * uLightColor * material.specularColor;
   FragColor = vec4(clamp(finalColor, 0.0, 1.0), 1.0f);
