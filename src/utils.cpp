@@ -135,3 +135,19 @@ void printNode(aiNode *node, const aiScene *scene) {
     printNode(node->mChildren[i], scene);
   }
 }
+void printMatrix(const glm::mat4 &m) {
+  for (uint col = 0; col < 4; col++) {
+    printf("%.2f, ", m[col][0]);
+    printf("%.2f, ", m[col][1]);
+    printf("%.2f, ", m[col][2]);
+    printf("%.2f\n", m[col][3]);
+  }
+}
+
+glm::vec3 getCameraPos(const glm::mat4 &viewMatrix) {
+  glm::mat3 inverseRotation{viewMatrix};
+  glm::mat3 rotation{glm::inverse(inverseRotation)};
+  glm::mat4 inverseTranslation{glm::mat4(rotation) * viewMatrix};
+  glm::mat4 translation{glm::inverse(inverseTranslation)};
+  return glm::vec3{translation[3][0], translation[3][1], translation[3][2]};
+};

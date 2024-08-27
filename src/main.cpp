@@ -136,10 +136,10 @@ void renderGUI(Uint64 cpu_us, Uint64 gui_us, Uint64 gpu_us, Camera &camera) {
   ImGui::Text("cpu=%luus", cpu_us);
   ImGui::Text("gui=%luus", gui_us);
   ImGui::Text("gpu=%luus", gpu_us);
-  ImGui::DragFloat3("camera.position", &camera.position[0], 0.1f, -10.0f, 10.0f,
-                    "%.2f");
-  ImGui::DragFloat3("camera.target", &camera.target[0], 0.1f, -10.0f, 10.0f,
-                    "%.2f");
+  ImGui::DragFloat4("materix0", &camera.transform[0][0], .01f, -5.0f, 5.0f);
+  ImGui::DragFloat4("materix1", &camera.transform[1][0], .01f, -5.0f, 5.0f);
+  ImGui::DragFloat4("materix2", &camera.transform[2][0], .01f, -5.0f, 5.0f);
+  ImGui::DragFloat4("materix3", &camera.transform[3][0], .01f, -5.0f, 5.0f);
   ImGui::DragFloat("camera.fov", &camera.fov, 1.0f, 0.0f, 120.0f);
   ImGui::DragFloat("camera.near", &camera.near, 0.1f, 0.1f, 10.0f);
   ImGui::DragFloat("camera.far", &camera.far, 0.5f, 1.0f, 100.0f);
@@ -151,6 +151,43 @@ void renderGUI(Uint64 cpu_us, Uint64 gui_us, Uint64 gpu_us, Camera &camera) {
   ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 
+void zoomCamera(glm::mat4 &viewMatrix, glm::vec3 &target, float zoomAmount) {
+  glm::vec3 cameraForward =
+      glm::vec3(viewMatrix[0][2], viewMatrix[1][2], viewMatrix[2][2]);
+  cameraForward = glm::normalize(cameraForward);
+  // prevent zooming through target
+
+  viewMatrix = glm::translate(viewMatrix, cameraForward * zoomAmount);
+}
+void orbitYaw(glm::mat4 &viewMatrix, glm::vec3 &target, float amount) {
+  glm::mat4 translated = glm::translate(viewMatrix, target);
+  glm::mat4 rotated =
+      glm::rotate(translated, amount * 0.01f, glm::vec3(0.0f, 1.0f, 0.0f));
+  viewMatrix = glm::translate(rotated, -target);
+};
+void orbitPitch(glm::mat4 &viewMatrix, glm::vec3 &target, float amount) {
+  glm::mat4 translated = glm::translate(viewMatrix, target);
+  glm::vec3 cameraRight =
+      glm::vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]);
+  cameraRight = glm::normalize(cameraRight);
+  glm::mat4 rotated = glm::rotate(translated, amount * 0.01f, cameraRight);
+  viewMatrix = glm::translate(rotated, -target);
+};
+
+void slideView(glm::mat4 &viewMatrix, glm::vec3 &target, float xAmount,
+               float yAmount) {
+  glm::vec3 cameraRight =
+      glm::vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]);
+  cameraRight = glm::normalize(cameraRight);
+  glm::vec3 cameraUp =
+      glm::vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]);
+  cameraUp = glm::normalize(cameraUp);
+  glm::vec3 translation =
+      cameraUp * yAmount * 0.01f + cameraRight * -xAmount * 0.01f;
+  viewMatrix = glm::translate(viewMatrix, translation);
+  target -= translation;
+};
+
 int main(int argc, char *args[]) {
   initGLWindow();
   glEnable(GL_DEBUG_OUTPUT);
@@ -159,9 +196,12 @@ int main(int argc, char *args[]) {
   initImGui();
 
   Actor s = import("assets/fullroom/fullroom.obj");
-  Camera camera{.up = glm::vec3{0, 1, 0},
-                .position = glm::vec3{2.0, 2.0, 2.0},
-                .target = glm::vec3{0.0f, 0.5f, 0.0f},
+  glm::vec3 initialCameraTarget = glm::vec3{0.0f, 0.0f, 0.0f};
+  glm::mat4 transform{glm::lookAt(glm::vec3{0.0, 5.0, 5.0}, // position
+                                  initialCameraTarget,      // target
+                                  glm::vec3{0, 1, 0})};     // up
+  Camera camera{.transform = transform,
+                .target = initialCameraTarget,
                 .aspectRatio = 1.0f * SCREEN_WIDTH / SCREEN_HEIGHT,
                 .fov = 45,
                 .near = .1f,
@@ -194,28 +234,25 @@ int main(int argc, char *args[]) {
         break;
       case SDL_MOUSEWHEEL: {
         // zoom
-        glm::vec3 direction = camera.position - camera.target;
-        float length = glm::length(direction);
-        length -= event.motion.x * 0.1f;
-        length = std::max<float>(length, 0.01f);
-        glm::vec3 unitDirection = normalize(direction);
-        camera.position = camera.target + (length * unitDirection);
+        zoomCamera(camera.transform, camera.target, event.motion.x * 0.1f);
         break;
       }
       case SDL_MOUSEMOTION: {
-        int x, y;
+        int x, y, l;
         Uint32 mouseButtons = SDL_GetMouseState(&x, &y);
+        const Uint8 *keyboardButtons = SDL_GetKeyboardState(&l);
         if (mouseButtons & SDL_BUTTON_MMASK) {
-          // view orbit
-          camera.position.y += event.motion.yrel * 0.01f;
-          glm::vec3 direction = camera.position - camera.target;
-          glm::vec2 directionXZ{direction.x, direction.z};
-          float length = glm::length(directionXZ);
-          glm::vec2 unitDirection = glm::normalize(directionXZ);
-          float angle = atan2(unitDirection.y, unitDirection.x);
-          angle += event.motion.xrel * 0.005f;
-          camera.position.x = camera.target.x + length * cosf32(angle);
-          camera.position.z = camera.target.z + length * sinf32(angle);
+          if (keyboardButtons[SDL_SCANCODE_LSHIFT]) {
+            slideView(camera.transform, camera.target, event.motion.xrel,
+                      event.motion.yrel);
+          } else {
+            if (event.motion.yrel != 0) {
+              orbitPitch(camera.transform, camera.target, event.motion.yrel);
+            }
+            if (event.motion.xrel != 0) {
+              orbitYaw(camera.transform, camera.target, event.motion.xrel);
+            }
+          }
         }
         break;
       }

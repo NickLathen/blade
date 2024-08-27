@@ -1,4 +1,5 @@
 #include "Actor.hpp"
+#include "utils.hpp"
 
 Actor::Actor(const aiScene *scene)
     : mShader{"shaders/vertex.glsl", "shaders/fragment.glsl"} {
@@ -97,31 +98,36 @@ void Actor::draw(const Camera &camera, const glm::mat4 &actorTransform) {
 
   mShader.useProgram();
 
-  glm::vec3 uAmbientLightColor = glm::vec3{.3, .3, .3};
-  glm::vec3 uLightDir = glm::vec3(-1, -5, 1);
-  glm::vec3 uLightColor = glm::vec3{1, 1, 1};
+  glm::vec3 uAmbientLightColor = glm::vec3{.2f, .2f, .2f};
+  glm::vec3 uLightDir = glm::vec3(1.0f, 1.0f, 0.5f);
+  glm::vec3 uLightPos = glm::vec3(1.0f, 1.0f, 0.5f);
+  glm::vec3 uLightColor = glm::vec3{1.0f, 1.0f, 1.0f};
 
-  glm::mat4 view = glm::lookAt(camera.position, camera.target, camera.up);
+  glm::vec3 uCameraPos = getCameraPos(camera.transform);
   glm::mat4 projection = glm::perspective(
       glm::radians(camera.fov), camera.aspectRatio, camera.near, camera.far);
-  glm::mat4 mvp = projection * view * actorTransform;
+  glm::mat4 mvp = projection * camera.transform * actorTransform;
 
   glm::mat3 uWorldMatrix =
       glm::mat3(actorTransform); // no inverse-transpose for orthogonal matrix
 
   // Set Per Actor Uniforms
   glUniform3fv(mShader.getUniformLocation("uCameraPos"), 1,
-               glm::value_ptr(camera.position));
+               glm::value_ptr(uCameraPos));
   glUniform3fv(mShader.getUniformLocation("uAmbientLightColor"), 1,
                glm::value_ptr(uAmbientLightColor));
   glUniform3fv(mShader.getUniformLocation("uLightDir"), 1,
                glm::value_ptr(uLightDir));
+  glUniform3fv(mShader.getUniformLocation("uLightPos"), 1,
+               glm::value_ptr(uLightPos));
   glUniform3fv(mShader.getUniformLocation("uLightColor"), 1,
                glm::value_ptr(uLightColor));
   glUniformMatrix4fv(mShader.getUniformLocation("uMVP"), 1, GL_FALSE,
                      glm::value_ptr(mvp));
   glUniformMatrix3fv(mShader.getUniformLocation("uWorldMatrix"), 1, GL_FALSE,
                      glm::value_ptr(uWorldMatrix));
+  glUniform1f(mShader.getUniformLocation("uSpecularPower"), 32.0f);
+  glUniform1f(mShader.getUniformLocation("uShininessScale"), 2000.0f);
 
   // Bind Per Actor Uniform Blocks
   glBindBufferBase(GL_UNIFORM_BUFFER, muMaterialBlockBinding, muMaterialUBO);
