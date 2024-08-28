@@ -32,10 +32,11 @@ struct Light {
 class Actor {
 public:
   Actor(const aiScene *scene);
-  void draw(const Camera &camera, const Light &light,
-            const glm::mat4 &actorTransform);
+  void draw(const Camera &camera, const Light &light, GLuint FBO);
   GLuint getNumElements() const;
   GLuint getNumVertices() const;
+  GLuint mVBO;
+  GLuint mEBO;
 
 private:
   uint _addMaterial(const aiMaterial *material);
@@ -47,8 +48,6 @@ private:
   std::vector<MeshVertexBuffer> mVertexBuffer{};
   Shader mShader;
   GLuint mVAO;
-  GLuint mVBO;
-  GLuint mEBO;
   GLuint muMaterialBlockBinding{0};
   GLuint muMaterialUBO{0};
 };
