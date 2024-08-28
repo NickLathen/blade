@@ -145,8 +145,8 @@ void renderGUI(Uint64 cpu_us, Uint64 gui_us, Uint64 gpu_us, Camera &camera,
   ImGui::DragFloat3("light.uLightPos", &light.uLightPos[0], .01f, -10.0f,
                     10.0f);
   ImGui::DragFloat("camera.fov", &camera.fov, 1.0f, 0.0f, 120.0f);
-  ImGui::DragFloat("camera.near", &camera.near, 0.1f, 0.1f, 10.0f);
-  ImGui::DragFloat("camera.far", &camera.far, 0.5f, 1.0f, 100.0f);
+  ImGui::DragFloat("camera.near", &camera.near, 0.001f, 0.001f, 1.0f);
+  ImGui::DragFloat("camera.far", &camera.far, 0.1f, 1.0f, 100.0f);
 
   ImGui::Text("%.1f FPS (%.3f ms/frame)", io.Framerate, 1000.0f / io.Framerate);
   ImGui::End();
@@ -232,7 +232,7 @@ int main(int argc, char *args[]) {
                 .target = initialCameraTarget,
                 .aspectRatio = 1.0f * SCREEN_WIDTH / SCREEN_HEIGHT,
                 .fov = 45,
-                .near = 0.1f,
+                .near = 0.01f,
                 .far = 16.0f};
 
   Actor s = import("assets/fullroom/fullroom.obj");
@@ -266,6 +266,19 @@ int main(int argc, char *args[]) {
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
   glBindTexture(GL_TEXTURE_2D, 0);
 
+  shadowShader.useProgram();
+  glGenVertexArrays(1, &shadowVAO);
+  glBindVertexArray(shadowVAO);
+  glBindBuffer(GL_ARRAY_BUFFER, s.mVBO);
+  glEnableVertexAttribArray(0);
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertexBuffer),
+                        (GLvoid *)0);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, s.mEBO);
+  glBindVertexArray(0);
+  glUseProgram(0);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
   Shader texShader("shaders/texture_vertex.glsl",
                    "shaders/texture_fragment.glsl");
   GLuint texVAO, texVBO;
@@ -289,19 +302,6 @@ int main(int argc, char *args[]) {
                         (void *)(sizeof(float) * 3));
   glBindVertexArray(0);
   glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-  shadowShader.useProgram();
-  glGenVertexArrays(1, &shadowVAO);
-  glBindVertexArray(shadowVAO);
-  glBindBuffer(GL_ARRAY_BUFFER, s.mVBO);
-  glEnableVertexAttribArray(0);
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertexBuffer),
-                        (GLvoid *)0);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, s.mEBO);
-  glBindVertexArray(0);
-  glUseProgram(0);
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
   SDL_Event event;
   bool quit = false;
@@ -375,7 +375,7 @@ int main(int argc, char *args[]) {
     glm::mat4 lightTransform =
         glm::lookAt(light.uLightPos, camera.target, glm::vec3(0.0, 1.0, 0.0));
     glm::mat4 lightProjection = glm::perspective(
-        glm::radians(90.0f), camera.aspectRatio, camera.near, camera.far);
+        glm::radians(120.0f), camera.aspectRatio, camera.near, camera.far);
     glm::mat4 uLightMVP = lightProjection * lightTransform;
 
     glUniformMatrix4fv(shadowShader.getUniformLocation("uMVP"), 1, GL_FALSE,
@@ -395,11 +395,7 @@ int main(int argc, char *args[]) {
     // glBindVertexArray(0);
     // glBindTexture(GL_TEXTURE_2D, 0);
 
-    glEnable(GL_CULL_FACE);
-    glCullFace(GL_BACK);
-    glFrontFace(GL_CCW);
-    glEnable(GL_DEPTH_TEST);
-    s.draw(camera, light, FBO);
+    s.draw(camera, light, mvp, uLightMVP, FBO);
 
     glm::vec4 lightPosition = mvp * glm::vec4(light.uLightPos, 1.0);
     glm::vec4 targetPosition = mvp * glm::vec4(camera.target, 1.0);

@@ -32,7 +32,8 @@ struct Light {
 class Actor {
 public:
   Actor(const aiScene *scene);
-  void draw(const Camera &camera, const Light &light, GLuint FBO);
+  void draw(const Camera &camera, const Light &light, const ::glm::mat4 &uMVP,
+            const glm::mat4 &uLightMVP, GLuint FBO);
   GLuint getNumElements() const;
   GLuint getNumVertices() const;
   GLuint mVBO;

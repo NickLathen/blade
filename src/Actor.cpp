@@ -88,7 +88,9 @@ Actor::Actor(const aiScene *scene)
 GLuint Actor::getNumElements() const { return mElementBuffer.size(); };
 GLuint Actor::getNumVertices() const { return mVertexBuffer.size(); };
 
-void Actor::draw(const Camera &camera, const Light &light, GLuint FBO) {
+void Actor::draw(const Camera &camera, const Light &light,
+                 const ::glm::mat4 &uMVP, const glm::mat4 &uLightMVP,
+                 GLuint FBO) {
   glEnable(GL_CULL_FACE);
   glCullFace(GL_BACK);
   glFrontFace(GL_CCW);
@@ -99,14 +101,6 @@ void Actor::draw(const Camera &camera, const Light &light, GLuint FBO) {
   mShader.useProgram();
 
   glm::vec3 uCameraPos = getCameraPos(camera.transform);
-  glm::mat4 projection = glm::perspective(
-      glm::radians(camera.fov), camera.aspectRatio, camera.near, camera.far);
-  glm::mat4 mvp = projection * camera.transform;
-  glm::mat4 lightTransform =
-      glm::lookAt(light.uLightPos, camera.target, glm::vec3(0.0, 1.0, 0.0));
-  glm::mat4 lightProjection = glm::perspective(
-      glm::radians(90.0f), camera.aspectRatio, camera.near, camera.far);
-  glm::mat4 uLightMVP = lightProjection * lightTransform;
 
   glm::mat3 uWorldMatrix =
       glm::mat3(1.0f); // no inverse-transpose for orthogonal matrix
@@ -127,7 +121,7 @@ void Actor::draw(const Camera &camera, const Light &light, GLuint FBO) {
   glUniform3fv(mShader.getUniformLocation("uLightColor"), 1,
                glm::value_ptr(light.uLightColor));
   glUniformMatrix4fv(mShader.getUniformLocation("uMVP"), 1, GL_FALSE,
-                     glm::value_ptr(mvp));
+                     glm::value_ptr(uMVP));
   glUniformMatrix4fv(mShader.getUniformLocation("uLightMVP"), 1, GL_FALSE,
                      glm::value_ptr(uLightMVP));
   glUniformMatrix3fv(mShader.getUniformLocation("uWorldMatrix"), 1, GL_FALSE,
