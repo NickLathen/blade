@@ -1,6 +1,7 @@
 #pragma once
 
 #include "gl.hpp"
+#include <string>
 
 class Shader {
 public:

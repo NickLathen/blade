@@ -36,6 +36,7 @@ public:
             const glm::mat4 &uLightMVP, GLuint FBO);
   GLuint getNumElements() const;
   GLuint getNumVertices() const;
+  GLuint mVAO;
   GLuint mVBO;
   GLuint mEBO;
 
@@ -48,7 +49,6 @@ private:
   std::vector<GLuint> mElementBuffer{};
   std::vector<MeshVertexBuffer> mVertexBuffer{};
   Shader mShader;
-  GLuint mVAO;
   GLuint muMaterialBlockBinding{0};
   GLuint muMaterialUBO{0};
 };

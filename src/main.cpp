@@ -12,6 +12,7 @@
 #include <SDL.h>
 
 #include "Actor.hpp"
+#include "RenderPass.hpp"
 #include "Shader.hpp"
 #include "utils.hpp"
 
@@ -192,27 +193,6 @@ void slideView(glm::mat4 &viewMatrix, glm::vec3 &target, float xAmount,
   target -= translation;
 };
 
-void initIconShader(const Shader &iconShader, GLuint &iconVAO) {
-  iconShader.useProgram();
-  glGenVertexArrays(1, &iconVAO);
-  glBindVertexArray(iconVAO);
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-  glBindVertexArray(0);
-  glUseProgram(0);
-}
-void drawIcon(const Shader &iconShader, GLuint iconVAO, glm::vec4 position,
-              glm::vec4 color) {
-  iconShader.useProgram();
-  glBindVertexArray(iconVAO);
-  glUniform4fv(iconShader.getUniformLocation("uPos"), 1,
-               glm::value_ptr(position));
-  glUniform1ui(iconShader.getUniformLocation("uColor"),
-               glm::packUnorm4x8(color));
-  glDrawArrays(GL_POINTS, 0, 1);
-  glBindVertexArray(0);
-}
-
 int main(int argc, char *args[]) {
   initGLWindow();
   glEnable(GL_DEBUG_OUTPUT);
@@ -237,71 +217,9 @@ int main(int argc, char *args[]) {
 
   Actor s = import("assets/fullroom/fullroom.obj");
 
-  Shader iconShader{"shaders/icon_vertex.glsl", "shaders/icon_fragment.glsl"};
-  GLuint iconVAO;
-  initIconShader(iconShader, iconVAO);
-
-  Shader shadowShader{"shaders/shadow_map_vertex.glsl",
-                      "shaders/shadow_map_fragment.glsl"};
-  GLuint shadowVAO, FBO, shadowMapTexture;
-  glGenFramebuffers(1, &FBO);
-  glGenTextures(1, &shadowMapTexture);
-  glBindTexture(GL_TEXTURE_2D, shadowMapTexture);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32F, SCREEN_WIDTH,
-               SCREEN_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
-  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-  glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, FBO);
-  glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
-                         GL_TEXTURE_2D, shadowMapTexture, 0);
-
-  GLenum Status = glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER);
-
-  if (Status != GL_FRAMEBUFFER_COMPLETE) {
-    printf("FB error, status: 0x%x\n", Status);
-    return 1;
-  }
-  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-  glBindTexture(GL_TEXTURE_2D, 0);
-
-  shadowShader.useProgram();
-  glGenVertexArrays(1, &shadowVAO);
-  glBindVertexArray(shadowVAO);
-  glBindBuffer(GL_ARRAY_BUFFER, s.mVBO);
-  glEnableVertexAttribArray(0);
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertexBuffer),
-                        (GLvoid *)0);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, s.mEBO);
-  glBindVertexArray(0);
-  glUseProgram(0);
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-
-  Shader texShader("shaders/texture_vertex.glsl",
-                   "shaders/texture_fragment.glsl");
-  GLuint texVAO, texVBO;
-  glGenVertexArrays(1, &texVAO);
-  glGenBuffers(1, &texVBO);
-  glBindVertexArray(texVAO);
-  glBindBuffer(GL_ARRAY_BUFFER, texVBO);
-  struct TexVert {
-    glm::vec3 aPos;      // -1 to 1
-    glm::vec2 aTexCoord; // 0 to 1
-  };
-  TexVert texVerts[3]{
-      {glm::vec3(-1.0, 3.0, 0.0f), glm::vec2(0.0, 2.0)},  // upper left
-      {glm::vec3(-1.0, -1.0, 0.0f), glm::vec2(0.0, 0.0)}, // bottom left
-      {glm::vec3(3.0, -1.0, 0.0f), glm::vec2(2.0, 0.0)}}; // bottom right
-  glBufferData(GL_ARRAY_BUFFER, sizeof(texVerts), &texVerts[0], GL_STATIC_DRAW);
-  glEnableVertexAttribArray(0);
-  glEnableVertexAttribArray(1);
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 5, (void *)0);
-  glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 5,
-                        (void *)(sizeof(float) * 3));
-  glBindVertexArray(0);
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  RP_Icon rpIcon{};
+  RP_Depth rpDepth{s.mVBO, s.mEBO, s.getNumElements(), 1024};
+  RP_Tex rpTex{};
 
   SDL_Event event;
   bool quit = false;
@@ -363,46 +281,31 @@ int main(int argc, char *args[]) {
     static const float bg[] = {0.2f, 0.2f, 0.2f, 1.0f};
     glClearBufferfv(GL_COLOR, 0, bg);
 
-    glm::mat4 projection = glm::perspective(
+    glm::mat4 camearaProjection = glm::perspective(
         glm::radians(camera.fov), camera.aspectRatio, camera.near, camera.far);
-    glm::mat4 mvp = projection * camera.transform;
+    glm::mat4 mvp = camearaProjection * camera.transform;
 
     glm::mat4 lightTransform =
         glm::lookAt(light.uLightPos, camera.target, glm::vec3(0.0, 1.0, 0.0));
-    glm::mat4 lightProjection =
-        glm::perspective(glm::radians(90.0f), 1.0f, camera.near, camera.far);
+
+    glm::mat4 lightProjection = rpDepth.getProjection();
     glm::mat4 uLightMVP = lightProjection * lightTransform;
-
-    // shadow map pass
-    shadowShader.useProgram();
-    glUniformMatrix4fv(shadowShader.getUniformLocation("uMVP"), 1, GL_FALSE,
-                       glm::value_ptr(uLightMVP));
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, FBO);
-    glClear(GL_DEPTH_BUFFER_BIT);
-    glBindVertexArray(shadowVAO);
-    glDrawElements(GL_TRIANGLES, s.getNumElements(), GL_UNSIGNED_INT, 0);
-    glBindVertexArray(0);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-
-    // render shadowmap
-    // texShader.useProgram();
-    // glUniform1i(texShader.getUniformLocation("uTexture"), 0);
-    // glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    // glActiveTexture(GL_TEXTURE0);
-    // glBindTexture(GL_TEXTURE_2D, FBO);
-    // glBindVertexArray(texVAO);
-    // glDrawArrays(GL_TRIANGLES, 0, 3);
-    // glBindVertexArray(0);
-    // glBindTexture(GL_TEXTURE_2D, 0);
-
-    s.draw(camera, light, mvp, uLightMVP, FBO);
 
     glm::vec4 lightPosition = mvp * glm::vec4(light.uLightPos, 1.0);
     glm::vec4 targetPosition = mvp * glm::vec4(camera.target, 1.0);
-    drawIcon(iconShader, iconVAO, lightPosition,
-             glm::vec4(1.0f, 1.0f, 0.0f, 1.0f));
-    drawIcon(iconShader, iconVAO, targetPosition,
-             glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
+
+    // shadow map pass
+    rpDepth.draw(uLightMVP);
+
+    // draw shadow map to screen
+    // rpTex.draw(rpDepth.getFramebuffer());
+
+    // material + lighting pass
+    s.draw(camera, light, mvp, uLightMVP, rpDepth.getFramebuffer());
+
+    // 3d icons
+    rpIcon.draw(lightPosition, glm::vec4(1.0f, 1.0f, 0.0f, 1.0f));
+    rpIcon.draw(targetPosition, glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
 
     tFinishDrawCalls = SDL_GetPerformanceCounter();
     renderGUI(cpu_us, gui_us, gpu_us, camera, light);

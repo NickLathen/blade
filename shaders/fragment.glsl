@@ -35,11 +35,11 @@ float CalcShadowFactor(vec4 position) {
   UVCoords.x = 0.5 * ProjCoords.x + 0.5;
   UVCoords.y = 0.5 * ProjCoords.y + 0.5;
   float z = 0.5 * ProjCoords.z + 0.5;
-  if (UVCoords.x < 0.0 || UVCoords.x > 1.0 || UVCoords.y < 0.0 || UVCoords.y > 1.0 || z < 0.0 || z > 1.0) {
+  if (z < 0.0) {
     return 0.5;
   }
   float Depth = texture(uTexture, UVCoords).x;
-  float bias = .0005;
+  float bias = .00025;
   if (Depth + bias < z) {
     return 0.5;
   }

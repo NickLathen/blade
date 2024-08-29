@@ -12,7 +12,11 @@ BUILD_FILES=src/main.cpp \
             src/Shader.cpp \
             src/Actor.cpp \
             src/Material.cpp \
-            src/Mesh.cpp
+            src/Mesh.cpp \
+            src/RP_Depth.cpp \
+            src/RP_Icon.cpp \
+            src/RP_Tex
+
 IMGUI_BUILD_FILES=imgui/imgui.cpp \
                   imgui/backends/imgui_impl_sdl2.cpp \
                   imgui/backends/imgui_impl_opengl3.cpp \

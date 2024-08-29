@@ -8,6 +8,6 @@ out vec4 FragColor;
 void main()
 {
     float depth = texture(uTexture, texCoord).x;
-    depth = 1.0 - (1.0 - depth) * 10.0;
+    depth = 1.0 - (1.0 - depth) * 5.0;
     FragColor = vec4(depth);
 }
