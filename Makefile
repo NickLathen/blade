@@ -10,12 +10,13 @@ CXXFLAGS=$(STD) $(SANITIZE) $(WARNALL) $(DEBUG) $(INCLUDES)
 BUILD_FILES=src/main.cpp \
             src/utils.cpp \
             src/Shader.cpp \
-            src/Actor.cpp \
+            src/MeshGroup.cpp \
             src/Material.cpp \
             src/Mesh.cpp \
-            src/RP_Depth.cpp \
+            src/RP_ShadowMap.cpp \
             src/RP_Icon.cpp \
-            src/RP_Tex
+            src/RP_Tex \
+            src/RP_Material
 
 IMGUI_BUILD_FILES=imgui/imgui.cpp \
                   imgui/backends/imgui_impl_sdl2.cpp \
@@ -46,6 +47,9 @@ build/imgui/backends/%.o: imgui/backends/%.cpp
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
 
 clean:
-	rm -rf build
+	rm -rf build/src
+
+clean_all:
+	rm -rf build/
 
 .PHONY: all clean

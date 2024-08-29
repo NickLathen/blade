@@ -1,8 +1,6 @@
 #pragma once
 #include "Material.hpp"
 #include "Mesh.hpp"
-#include "Shader.hpp"
-#include "gl.hpp"
 #include <assimp/scene.h>
 #include <glm/glm.hpp>
 #include <vector>
@@ -13,32 +11,14 @@ struct MeshMap {
   GLuint elementOffset;
 };
 
-struct Camera {
-  glm::mat4 transform{1.0f};
-  glm::vec3 target{};
-  float aspectRatio{};
-  float fov{};
-  float near{};
-  float far{};
-};
-
-struct Light {
-  glm::vec3 uAmbientLightColor;
-  glm::vec3 uLightDir;
-  glm::vec3 uLightPos;
-  glm::vec3 uLightColor;
-};
-
-class Actor {
+class MeshGroup {
 public:
-  Actor(const aiScene *scene);
-  void draw(const Camera &camera, const Light &light, const ::glm::mat4 &uMVP,
-            const glm::mat4 &uLightMVP, GLuint FBO);
+  MeshGroup(const aiScene *scene);
   GLuint getNumElements() const;
   GLuint getNumVertices() const;
-  GLuint mVAO;
-  GLuint mVBO;
-  GLuint mEBO;
+  const std::vector<Material> &getMaterials() const;
+  const std::vector<MeshVertexBuffer> &getVertexBuffer() const;
+  const std::vector<GLuint> &getElementBuffer() const;
 
 private:
   uint _addMaterial(const aiMaterial *material);
@@ -48,7 +28,4 @@ private:
   std::vector<Material> mMaterials{};
   std::vector<GLuint> mElementBuffer{};
   std::vector<MeshVertexBuffer> mVertexBuffer{};
-  Shader mShader;
-  GLuint muMaterialBlockBinding{0};
-  GLuint muMaterialUBO{0};
 };

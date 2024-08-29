@@ -2,10 +2,12 @@
 #include "RenderPass.hpp"
 #include "Shader.hpp"
 #include "gl.hpp"
+#include <glm/ext.hpp>
+#include <glm/glm.hpp>
 #include <stdio.h>
 
-RP_Depth::RP_Depth(GLuint VBO, GLuint EBO, GLuint numElements,
-                   GLuint textureSize)
+RP_ShadowMap::RP_ShadowMap(GLuint VBO, GLuint EBO, GLuint numElements,
+                           GLuint textureSize)
     : mDepthShader{"shaders/shadow_map_vertex.glsl",
                    "shaders/shadow_map_fragment.glsl"},
       mVBO{VBO}, mEBO{EBO}, mNumElements{numElements},
@@ -45,13 +47,18 @@ RP_Depth::RP_Depth(GLuint VBO, GLuint EBO, GLuint numElements,
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 };
 
-glm::mat4 RP_Depth::getProjection() {
+glm::mat4 RP_ShadowMap::getProjection() {
   return glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 100.0f);
 }
 
-void RP_Depth::draw(const glm::mat4 &uMVP) {
+void RP_ShadowMap::draw(const glm::mat4 &uMVP) {
   glm::ivec4 vp{};
+  GLboolean gDepthTest, gCullFace;
   glGetIntegerv(GL_VIEWPORT, &vp[0]);
+  glGetBooleanv(GL_DEPTH_TEST, &gDepthTest);
+  glGetBooleanv(GL_CULL_FACE, &gCullFace);
+  glEnable(GL_DEPTH_TEST);
+  glDisable(GL_CULL_FACE);
   glViewport(0, 0, mTextureSize, mTextureSize);
   mDepthShader.useProgram();
   glUniformMatrix4fv(mDepthShader.getUniformLocation("uMVP"), 1, GL_FALSE,
@@ -64,6 +71,10 @@ void RP_Depth::draw(const glm::mat4 &uMVP) {
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
   glUseProgram(0);
   glViewport(vp[0], vp[1], vp[2], vp[3]);
+  if (gDepthTest == GL_FALSE)
+    glDisable(GL_DEPTH_TEST);
+  if (gCullFace == GL_TRUE)
+    glEnable(GL_CULL_FACE);
 };
 
-GLuint RP_Depth::getFramebuffer() { return mDepthFBO; };
+GLuint RP_ShadowMap::getFramebuffer() { return mDepthFBO; };

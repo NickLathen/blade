@@ -1,4 +1,5 @@
 #include "Mesh.hpp"
+#include <glm/glm.hpp>
 
 Mesh::Mesh(const aiMesh *mesh)
     : mVertices(mesh->mNumVertices * 3), mNormals(mesh->mNumVertices * 3),
@@ -20,24 +21,25 @@ Mesh::Mesh(const aiMesh *mesh)
 GLsizei Mesh::getNumElements() const { return mFaces.size(); }
 GLsizei Mesh::getNumVertices() const { return mVertices.size() / 3; }
 const std::vector<GLuint> Mesh::getElementBuffer(uint vertexOffset) const {
-  std::vector<GLuint> elementBuffer{};
-  elementBuffer.reserve(getNumElements());
-  for (GLuint idx : mFaces) {
-    elementBuffer.push_back(idx + vertexOffset);
+  std::vector<GLuint> elementBuffer{mFaces};
+  for (GLuint &idx : elementBuffer) {
+    idx += vertexOffset;
   }
   return elementBuffer;
 };
 const std::vector<MeshVertexBuffer>
 Mesh::getVertexBuffer(GLuint materialIdx) const {
-  uint sz = mVertices.size() / 3;
+  uint sz = getNumVertices();
   std::vector<MeshVertexBuffer> vertexBufferData{};
   vertexBufferData.reserve(getNumVertices());
   for (uint i = 0; i < sz; i++) {
-    vertexBufferData.push_back({});
     uint offset = i * 3;
-    memcpy(&vertexBufferData[i], &mVertices[offset], sizeof(glm::vec3));
-    memcpy(&vertexBufferData[i].aNormal, &mNormals[offset], sizeof(glm::vec3));
-    vertexBufferData[i].aMaterialIdx = materialIdx;
+    vertexBufferData.emplace_back((MeshVertexBuffer){
+        .aPos = glm::vec3(mVertices[offset], mVertices[offset + 1],
+                          mVertices[offset + 2]),
+        .aNormal = glm::vec3(mNormals[offset], mNormals[offset + 1],
+                             mNormals[offset + 2]),
+        .aMaterialIdx = materialIdx});
   }
   return vertexBufferData;
 };

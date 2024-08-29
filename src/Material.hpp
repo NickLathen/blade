@@ -1,6 +1,6 @@
 #pragma once
-#include "gl.hpp"
 #include <assimp/material.h>
+#include <glm/glm.hpp>
 
 struct BSDFMaterial {
   glm::vec3 ambientColor;

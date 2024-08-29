@@ -1,6 +1,8 @@
 #include "utils.hpp"
 
 #include <fstream>
+#include <glm/ext.hpp>
+#include <glm/glm.hpp>
 #include <sstream>
 
 std::string loadFileIntoString(const std::string &filePath) {
@@ -150,4 +152,42 @@ glm::vec3 getCameraPos(const glm::mat4 &viewMatrix) {
   glm::mat4 inverseTranslation{glm::mat4(rotation) * viewMatrix};
   glm::mat4 translation{glm::inverse(inverseTranslation)};
   return glm::vec3{translation[3][0], translation[3][1], translation[3][2]};
+};
+
+void zoomCamera(glm::mat4 &viewMatrix, glm::vec3 &target, float zoomAmount) {
+  glm::vec3 cameraForward =
+      glm::vec3(viewMatrix[0][2], viewMatrix[1][2], viewMatrix[2][2]);
+  cameraForward = glm::normalize(cameraForward);
+  // prevent zooming through target
+  viewMatrix = glm::translate(viewMatrix, cameraForward * zoomAmount);
+}
+
+void orbitYaw(glm::mat4 &viewMatrix, glm::vec3 &target, float amount) {
+  glm::mat4 translated = glm::translate(viewMatrix, target);
+  glm::mat4 rotated =
+      glm::rotate(translated, amount * 0.01f, glm::vec3(0.0f, 1.0f, 0.0f));
+  viewMatrix = glm::translate(rotated, -target);
+};
+
+void orbitPitch(glm::mat4 &viewMatrix, glm::vec3 &target, float amount) {
+  glm::mat4 translated = glm::translate(viewMatrix, target);
+  glm::vec3 cameraRight =
+      glm::vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]);
+  cameraRight = glm::normalize(cameraRight);
+  glm::mat4 rotated = glm::rotate(translated, amount * 0.01f, cameraRight);
+  viewMatrix = glm::translate(rotated, -target);
+};
+
+void slideView(glm::mat4 &viewMatrix, glm::vec3 &target, float xAmount,
+               float yAmount) {
+  glm::vec3 cameraRight =
+      glm::vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]);
+  cameraRight = glm::normalize(cameraRight);
+  glm::vec3 cameraUp =
+      glm::vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]);
+  cameraUp = glm::normalize(cameraUp);
+  glm::vec3 translation =
+      cameraUp * yAmount * 0.01f + cameraRight * -xAmount * 0.01f;
+  viewMatrix = glm::translate(viewMatrix, translation);
+  target -= translation;
 };

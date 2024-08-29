@@ -10,8 +10,10 @@
 #include <imgui_impl_sdl2.h>
 
 #include <SDL.h>
+#include <glm/ext.hpp>
+#include <glm/glm.hpp>
 
-#include "Actor.hpp"
+#include "MeshGroup.hpp"
 #include "RenderPass.hpp"
 #include "Shader.hpp"
 #include "utils.hpp"
@@ -101,7 +103,7 @@ void printGLInfo() {
             << glGetString(GL_SHADING_LANGUAGE_VERSION) << std::endl;
 }
 
-Actor import(const std::string &pFile) {
+MeshGroup import(const std::string &pFile) {
   Assimp::Importer importer;
   const aiScene *scene = importer.ReadFile(pFile, 0);
 
@@ -110,7 +112,7 @@ Actor import(const std::string &pFile) {
     std::cerr << "ERROR::ASSIMP::" << importer.GetErrorString() << std::endl;
     return nullptr;
   }
-  return Actor{scene};
+  return MeshGroup{scene};
 }
 
 void initImGui() {
@@ -156,49 +158,21 @@ void renderGUI(Uint64 cpu_us, Uint64 gui_us, Uint64 gpu_us, Camera &camera,
   ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 
-void zoomCamera(glm::mat4 &viewMatrix, glm::vec3 &target, float zoomAmount) {
-  glm::vec3 cameraForward =
-      glm::vec3(viewMatrix[0][2], viewMatrix[1][2], viewMatrix[2][2]);
-  cameraForward = glm::normalize(cameraForward);
-  // prevent zooming through target
-
-  viewMatrix = glm::translate(viewMatrix, cameraForward * zoomAmount);
-}
-void orbitYaw(glm::mat4 &viewMatrix, glm::vec3 &target, float amount) {
-  glm::mat4 translated = glm::translate(viewMatrix, target);
-  glm::mat4 rotated =
-      glm::rotate(translated, amount * 0.01f, glm::vec3(0.0f, 1.0f, 0.0f));
-  viewMatrix = glm::translate(rotated, -target);
-};
-void orbitPitch(glm::mat4 &viewMatrix, glm::vec3 &target, float amount) {
-  glm::mat4 translated = glm::translate(viewMatrix, target);
-  glm::vec3 cameraRight =
-      glm::vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]);
-  cameraRight = glm::normalize(cameraRight);
-  glm::mat4 rotated = glm::rotate(translated, amount * 0.01f, cameraRight);
-  viewMatrix = glm::translate(rotated, -target);
-};
-
-void slideView(glm::mat4 &viewMatrix, glm::vec3 &target, float xAmount,
-               float yAmount) {
-  glm::vec3 cameraRight =
-      glm::vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]);
-  cameraRight = glm::normalize(cameraRight);
-  glm::vec3 cameraUp =
-      glm::vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]);
-  cameraUp = glm::normalize(cameraUp);
-  glm::vec3 translation =
-      cameraUp * yAmount * 0.01f + cameraRight * -xAmount * 0.01f;
-  viewMatrix = glm::translate(viewMatrix, translation);
-  target -= translation;
-};
-
 int main(int argc, char *args[]) {
   initGLWindow();
   glEnable(GL_DEBUG_OUTPUT);
   glDebugMessageCallback(MessageCallback, 0);
   printGLInfo();
   initImGui();
+
+  MeshGroup meshGroup = import("assets/fullroom/fullroom.obj");
+  RP_Material rpMaterial{};
+  rpMaterial.init(meshGroup.getMaterials(), meshGroup.getVertexBuffer(),
+                  meshGroup.getElementBuffer());
+  RP_ShadowMap rpShadowMap{rpMaterial.getVBO(), rpMaterial.getEBO(),
+                           meshGroup.getNumElements(), 1024};
+  RP_Tex rpTex{};
+  RP_Icon rpIcon{};
 
   Light light{.uAmbientLightColor = {.1f, .1f, .1f},
               .uLightDir = {-1.0f, 1.0f, 0.5f},
@@ -214,12 +188,6 @@ int main(int argc, char *args[]) {
                 .fov = 45,
                 .near = 0.01f,
                 .far = 16.0f};
-
-  Actor s = import("assets/fullroom/fullroom.obj");
-
-  RP_Icon rpIcon{};
-  RP_Depth rpDepth{s.mVBO, s.mEBO, s.getNumElements(), 1024};
-  RP_Tex rpTex{};
 
   SDL_Event event;
   bool quit = false;
@@ -288,20 +256,21 @@ int main(int argc, char *args[]) {
     glm::mat4 lightTransform =
         glm::lookAt(light.uLightPos, camera.target, glm::vec3(0.0, 1.0, 0.0));
 
-    glm::mat4 lightProjection = rpDepth.getProjection();
+    glm::mat4 lightProjection = rpShadowMap.getProjection();
     glm::mat4 uLightMVP = lightProjection * lightTransform;
 
     glm::vec4 lightPosition = mvp * glm::vec4(light.uLightPos, 1.0);
     glm::vec4 targetPosition = mvp * glm::vec4(camera.target, 1.0);
 
     // shadow map pass
-    rpDepth.draw(uLightMVP);
+    rpShadowMap.draw(uLightMVP);
 
     // draw shadow map to screen
-    // rpTex.draw(rpDepth.getFramebuffer());
+    // rpTex.draw(rpShadowMap.getFramebuffer());
 
     // material + lighting pass
-    s.draw(camera, light, mvp, uLightMVP, rpDepth.getFramebuffer());
+    rpMaterial.draw(camera, light, mvp, uLightMVP,
+                    rpShadowMap.getFramebuffer());
 
     // 3d icons
     rpIcon.draw(lightPosition, glm::vec4(1.0f, 1.0f, 0.0f, 1.0f));

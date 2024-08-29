@@ -1,6 +1,7 @@
 #pragma once
 #include "gl.hpp"
 #include <assimp/mesh.h>
+#include <glm/glm.hpp>
 #include <vector>
 
 struct MeshVertexBuffer {

@@ -1,4 +1,6 @@
 #include "RenderPass.hpp"
+#include <glm/ext.hpp>
+#include <glm/glm.hpp>
 
 RP_Icon::RP_Icon()
     : mIconShader{"shaders/icon_vertex.glsl", "shaders/icon_fragment.glsl"} {
