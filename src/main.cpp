@@ -367,30 +367,30 @@ int main(int argc, char *args[]) {
         glm::radians(camera.fov), camera.aspectRatio, camera.near, camera.far);
     glm::mat4 mvp = projection * camera.transform;
 
-    // shadow map pass
-    glBindVertexArray(shadowVAO);
-    shadowShader.useProgram();
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, FBO);
-    glClear(GL_DEPTH_BUFFER_BIT);
     glm::mat4 lightTransform =
         glm::lookAt(light.uLightPos, camera.target, glm::vec3(0.0, 1.0, 0.0));
-    glm::mat4 lightProjection = glm::perspective(
-        glm::radians(120.0f), camera.aspectRatio, camera.near, camera.far);
+    glm::mat4 lightProjection =
+        glm::perspective(glm::radians(90.0f), 1.0f, camera.near, camera.far);
     glm::mat4 uLightMVP = lightProjection * lightTransform;
 
+    // shadow map pass
+    shadowShader.useProgram();
     glUniformMatrix4fv(shadowShader.getUniformLocation("uMVP"), 1, GL_FALSE,
                        glm::value_ptr(uLightMVP));
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, FBO);
+    glClear(GL_DEPTH_BUFFER_BIT);
+    glBindVertexArray(shadowVAO);
     glDrawElements(GL_TRIANGLES, s.getNumElements(), GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 
     // render shadowmap
-    // glBindVertexArray(texVAO);
     // texShader.useProgram();
-    // glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     // glUniform1i(texShader.getUniformLocation("uTexture"), 0);
+    // glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     // glActiveTexture(GL_TEXTURE0);
     // glBindTexture(GL_TEXTURE_2D, FBO);
+    // glBindVertexArray(texVAO);
     // glDrawArrays(GL_TRIANGLES, 0, 3);
     // glBindVertexArray(0);
     // glBindTexture(GL_TEXTURE_2D, 0);

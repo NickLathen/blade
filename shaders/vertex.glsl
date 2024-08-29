@@ -17,5 +17,4 @@ void main() {
     materialIdx = aMaterialIdx;
     gl_Position = uMVP * vec4(aPos, 1.0);
     lightSpacePosition = uLightMVP * vec4(aPos, 1.0);
-    
 }

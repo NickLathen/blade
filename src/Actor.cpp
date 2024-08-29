@@ -96,19 +96,11 @@ void Actor::draw(const Camera &camera, const Light &light,
   glFrontFace(GL_CCW);
   glEnable(GL_DEPTH_TEST);
 
-  glBindVertexArray(mVAO);
-
   mShader.useProgram();
-
   glm::vec3 uCameraPos = getCameraPos(camera.transform);
-
   glm::mat3 uWorldMatrix =
       glm::mat3(1.0f); // no inverse-transpose for orthogonal matrix
-
   glUniform1i(mShader.getUniformLocation("uTexture"), 0);
-  glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_2D, FBO);
-
   // Set Per Actor Uniforms
   glUniform3fv(mShader.getUniformLocation("uCameraPos"), 1,
                glm::value_ptr(uCameraPos));
@@ -131,6 +123,11 @@ void Actor::draw(const Camera &camera, const Light &light,
 
   // Bind Per Actor Uniform Blocks
   glBindBufferBase(GL_UNIFORM_BUFFER, muMaterialBlockBinding, muMaterialUBO);
+
+  // Bind drawing data
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, FBO);
+  glBindVertexArray(mVAO);
 
   glDrawElements(GL_TRIANGLES, getNumElements(), GL_UNSIGNED_INT, 0);
   // if we want to render individual meshes

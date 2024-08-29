@@ -39,7 +39,7 @@ float CalcShadowFactor(vec4 position) {
     return 0.5;
   }
   float Depth = texture(uTexture, UVCoords).x;
-  float bias = .00025;
+  float bias = .0005;
   if (Depth + bias < z) {
     return 0.5;
   }
@@ -52,7 +52,8 @@ void main() {
   vec3 ambientColor = uAmbientLightColor;
   vec3 nNormalDir = normalize(normalDir);
   vec3 lightDir = normalize(uLightDir);
-  vec3 specLightDir = normalize(uLightPos - worldPos);
+  vec3 lightRelativePosition = uLightPos - worldPos;
+  vec3 specLightDir = normalize(lightRelativePosition);
 
   //diffuse color
   vec3 diffuseColor = max(dot(nNormalDir, specLightDir), 0.0) *
