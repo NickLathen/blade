@@ -8,6 +8,9 @@ RP_Material::RP_Material(const std::vector<Material> &materials,
                          const std::vector<GLuint> &elementBufferData)
     : mShader{"shaders/vertex.glsl", "shaders/fragment.glsl"} {
   mShader.setUniformBlockBinding("uMaterialBlock", muMaterialBlockBinding);
+  mShader.useProgram();
+  mShader.uniform1i("uTexture", muTextureBinding);
+  glUseProgram(0);
 
   // Copy mMaterials to GPU muMaterialUBO
   uint numMaterials = materials.size();
@@ -59,31 +62,22 @@ void RP_Material::draw(const glm::vec3 &uCameraPos, const Light &light,
   // Set Shader
   mShader.useProgram();
   // Set Uniforms
-  glUniform3fv(mShader.getUniformLocation("uCameraPos"), 1,
-               glm::value_ptr(uCameraPos));
-  glUniform3fv(mShader.getUniformLocation("uAmbientLightColor"), 1,
-               glm::value_ptr(light.uAmbientLightColor));
-  glUniform3fv(mShader.getUniformLocation("uLightDir"), 1,
-               glm::value_ptr(light.uLightDir));
-  glUniform3fv(mShader.getUniformLocation("uLightPos"), 1,
-               glm::value_ptr(light.uLightPos));
-  glUniform3fv(mShader.getUniformLocation("uLightColor"), 1,
-               glm::value_ptr(light.uLightColor));
-  glUniformMatrix4fv(mShader.getUniformLocation("uMVP"), 1, GL_FALSE,
-                     glm::value_ptr(uMVP));
-  glUniformMatrix4fv(mShader.getUniformLocation("uLightMVP"), 1, GL_FALSE,
-                     glm::value_ptr(uLightMVP));
-  glUniformMatrix4fv(mShader.getUniformLocation("uModelMatrix"), 1, GL_FALSE,
-                     glm::value_ptr(uModelMatrix));
-  glUniform1f(mShader.getUniformLocation("uSpecularPower"), 32.0f);
-  glUniform1f(mShader.getUniformLocation("uShininessScale"), 2000.0f);
+  mShader.uniform3fv("uCameraPos", uCameraPos);
+  mShader.uniform3fv("uAmbientLightColor", light.uAmbientLightColor);
+  mShader.uniform3fv("uLightDir", light.uLightDir);
+  mShader.uniform3fv("uLightColor", light.uLightColor);
+  mShader.uniform3fv("uLightPos", light.uLightPos);
+  mShader.uniformMatrix4fv("uMVP", GL_FALSE, uMVP);
+  mShader.uniformMatrix4fv("uLightMVP", GL_FALSE, uLightMVP);
+  mShader.uniformMatrix4fv("uModelMatrix", GL_FALSE, uModelMatrix);
+  mShader.uniform1f("uSpecularPower", 32.0f);
+  mShader.uniform1f("uShininessScale", 2000.0f);
 
   // Bind Uniform Blocks
   mUBO.bindBufferBase(muMaterialBlockBinding);
 
   // Bind Textures
-  glUniform1i(mShader.getUniformLocation("uTexture"), 0);
-  glActiveTexture(GL_TEXTURE0);
+  glActiveTexture(GL_TEXTURE0 + muTextureBinding);
   FBO.bindTexture(GL_TEXTURE_2D);
 
   // Bind VAO

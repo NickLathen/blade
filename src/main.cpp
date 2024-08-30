@@ -189,8 +189,6 @@ int main(int argc, char *args[]) {
   glm::mat4 transform{glm::lookAt(glm::vec3{0.0, 5.0, 5.0}, // position
                                   initialCameraTarget,      // target
                                   glm::vec3{0, 1, 0})};     // up
-  printf("transform=\n");
-  printMatrix(transform);
   Camera camera{.transform = transform,
                 .target = initialCameraTarget,
                 .aspectRatio = 1.0f * SCREEN_WIDTH / SCREEN_HEIGHT,

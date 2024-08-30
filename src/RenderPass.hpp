@@ -115,8 +115,11 @@ public:
   ~RP_FBO() { glDeleteFramebuffers(1, &mFBO); }
   RP_NEVER_COPY(RP_FBO);
   void bindTexture(GLenum target) const { glBindTexture(target, mFBO); }
-  void bindDrawBuffer() const { glBindFramebuffer(GL_DRAW_FRAMEBUFFER, mFBO); }
-  void unbindDrawBuffer() const { glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0); }
+  void bindFramebuffer(GLenum target) const { glBindFramebuffer(target, mFBO); }
+  void unbindFramebuffer(GLenum target) const { glBindFramebuffer(target, 0); }
+  GLenum checkFramebufferStatus(GLenum target) const {
+    return glCheckFramebufferStatus(target);
+  }
 
 private:
   GLuint mFBO;
@@ -157,6 +160,7 @@ private:
   const RP_EBO mEBO;
   GLuint mNumElements{0};
   const GLuint muMaterialBlockBinding{0};
+  const GLuint muTextureBinding{0};
 };
 
 class RP_ShadowMap {
@@ -198,4 +202,5 @@ private:
   Shader mTexShader;
   const RP_VAO mVAO;
   const RP_VBO mVBO;
+  const GLuint muTextureBinding{1};
 };

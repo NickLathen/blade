@@ -3,6 +3,10 @@
 RP_Tex::RP_Tex()
     : mTexShader{"shaders/texture_vertex.glsl",
                  "shaders/texture_fragment.glsl"} {
+  mTexShader.useProgram();
+  mTexShader.uniform1i("uTexture", muTextureBinding);
+  glUseProgram(0);
+
   struct TexVert {
     glm::vec3 aPos;      // -1 to 1
     glm::vec2 aTexCoord; // 0 to 1
@@ -22,8 +26,7 @@ RP_Tex::RP_Tex()
 };
 void RP_Tex::draw(const RP_FBO &FBO) const {
   mTexShader.useProgram();
-  glUniform1i(mTexShader.getUniformLocation("uTexture"), 0);
-  glActiveTexture(GL_TEXTURE0);
+  glActiveTexture(GL_TEXTURE0 + muTextureBinding);
   FBO.bindTexture(GL_TEXTURE_2D);
   mVAO.bindVertexArray();
   glDrawArrays(GL_TRIANGLES, 0, 3);

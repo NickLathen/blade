@@ -20,16 +20,15 @@ RP_ShadowMap::RP_ShadowMap(const RP_VBO &VBO, const RP_EBO &EBO,
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
   glm::vec4 borderColor{0.0, 1.0, 1.0, 1.0};
   glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, &borderColor[0]);
-  mFBO.bindDrawBuffer();
+
+  mFBO.bindFramebuffer(GL_DRAW_FRAMEBUFFER);
   mTexture.framebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
                                 GL_TEXTURE_2D, 0);
-
-  GLenum Status = glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER);
-
+  GLenum Status = mFBO.checkFramebufferStatus(GL_DRAW_FRAMEBUFFER);
   if (Status != GL_FRAMEBUFFER_COMPLETE) {
     printf("FB error, status: 0x%x\n", Status);
   }
-  mFBO.unbindDrawBuffer();
+  mFBO.unbindFramebuffer(GL_DRAW_FRAMEBUFFER);
 
   mVAO.bindVertexArray();
   mVAO.vertexAttribPointer(VBO, 0, 3, GL_FLOAT, GL_FALSE,
@@ -52,15 +51,14 @@ void RP_ShadowMap::draw(const glm::mat4 &uMVP) const {
   glEnable(GL_DEPTH_TEST);
   glDisable(GL_CULL_FACE);
   glViewport(0, 0, mTextureSize, mTextureSize);
-  mDepthShader.useProgram();
-  glUniformMatrix4fv(mDepthShader.getUniformLocation("uMVP"), 1, GL_FALSE,
-                     glm::value_ptr(uMVP));
-  mFBO.bindDrawBuffer();
+  mFBO.bindFramebuffer(GL_DRAW_FRAMEBUFFER);
   glClear(GL_DEPTH_BUFFER_BIT);
+  mDepthShader.useProgram();
+  mDepthShader.uniformMatrix4fv("uMVP", GL_FALSE, uMVP);
   mVAO.bindVertexArray();
   glDrawElements(GL_TRIANGLES, mNumElements, GL_UNSIGNED_INT, 0);
   mVAO.unbind();
-  mFBO.unbindDrawBuffer();
+  mFBO.unbindFramebuffer(GL_DRAW_FRAMEBUFFER);
   glUseProgram(0);
   glViewport(vp[0], vp[1], vp[2], vp[3]);
   if (gDepthTest == GL_FALSE)

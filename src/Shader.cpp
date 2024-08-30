@@ -2,6 +2,8 @@
 
 #include "Shader.hpp"
 #include "utils.hpp"
+#include <glm/ext.hpp>
+#include <glm/glm.hpp>
 
 Shader::Shader(const char *vertexPath, const char *fragPath) {
   const std::string vertexSource = loadFileIntoString(vertexPath);
@@ -76,4 +78,29 @@ void Shader::setUniformBlockBinding(const std::string &blockName,
   GLuint uniformBlockIndex = getUniformBlockIndex(blockName);
   return glUniformBlockBinding(_program, uniformBlockIndex,
                                uniformBlockBinding);
+};
+
+void Shader::uniform3fv(const std::string &uniformName,
+                        const glm::vec3 &value) const {
+  glUniform3fv(getUniformLocation(uniformName), 1, glm::value_ptr(value));
+};
+void Shader::uniform4fv(const std::string &uniformName,
+                        const glm::vec4 &value) const {
+  glUniform4fv(getUniformLocation(uniformName), 1, glm::value_ptr(value));
+};
+void Shader::uniformMatrix4fv(const std::string &uniformName,
+                              GLboolean transpose,
+                              const glm::mat4 &value) const {
+  glUniformMatrix4fv(getUniformLocation(uniformName), 1, transpose,
+                     glm::value_ptr(value));
+};
+void Shader::uniform1f(const std::string &uniformName, float value) const {
+  glUniform1f(getUniformLocation(uniformName), value);
+};
+
+void Shader::uniform1i(const std::string &uniformName, GLint value) const {
+  glUniform1i(getUniformLocation(uniformName), value);
+};
+void Shader::uniform1ui(const std::string &uniformName, GLuint value) const {
+  glUniform1ui(getUniformLocation(uniformName), value);
 };
