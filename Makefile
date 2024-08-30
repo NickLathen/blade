@@ -8,6 +8,8 @@ CXX=clang
 CXXFLAGS=$(STD) $(SANITIZE) $(WARNALL) $(DEBUG) $(INCLUDES)
 
 BUILD_FILES=src/main.cpp \
+            src/Game.cpp \
+            src/Platform.cpp \
             src/utils.cpp \
             src/Shader.cpp \
             src/MeshGroup.cpp \

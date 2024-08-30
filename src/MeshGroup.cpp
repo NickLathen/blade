@@ -1,5 +1,20 @@
+#include <assimp/Importer.hpp>
+#include <iostream>
+
 #include "MeshGroup.hpp"
 #include "utils.hpp"
+
+MeshGroup import(const std::string &pFile) {
+  Assimp::Importer importer;
+  const aiScene *scene = importer.ReadFile(pFile, 0);
+
+  if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE ||
+      !scene->mRootNode) {
+    std::cerr << "ERROR::ASSIMP::" << importer.GetErrorString() << std::endl;
+    return nullptr;
+  }
+  return MeshGroup{scene};
+}
 
 MeshGroup::MeshGroup(const aiScene *scene) {
   // Construct mMaterials

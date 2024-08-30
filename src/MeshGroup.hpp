@@ -3,6 +3,7 @@
 #include "Mesh.hpp"
 #include <assimp/scene.h>
 #include <glm/glm.hpp>
+#include <string>
 #include <vector>
 
 struct MeshMap {
@@ -29,3 +30,5 @@ private:
   std::vector<GLuint> mElementBuffer{};
   std::vector<MeshVertexBuffer> mVertexBuffer{};
 };
+
+MeshGroup import(const std::string &pFile);
