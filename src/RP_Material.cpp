@@ -3,18 +3,11 @@
 #include <glm/ext.hpp>
 #include <glm/glm.hpp>
 
-RP_Material::RP_Material()
+RP_Material::RP_Material(const std::vector<Material> &materials,
+                         const std::vector<MeshVertexBuffer> &vertexBufferData,
+                         const std::vector<GLuint> &elementBufferData)
     : mShader{"shaders/vertex.glsl", "shaders/fragment.glsl"} {
   mShader.setUniformBlockBinding("uMaterialBlock", muMaterialBlockBinding);
-  glGenVertexArrays(1, &mVAO);
-  glGenBuffers(1, &mVBO);
-  glGenBuffers(1, &mEBO);
-  glGenBuffers(1, &muMaterialUBO);
-};
-
-void RP_Material::init(const std::vector<Material> &materials,
-                       const std::vector<MeshVertexBuffer> &vertexBufferData,
-                       const std::vector<GLuint> &elementBufferData) {
 
   // Copy mMaterials to GPU muMaterialUBO
   uint numMaterials = materials.size();
@@ -22,40 +15,35 @@ void RP_Material::init(const std::vector<Material> &materials,
   for (uint i = 0; i < numMaterials; i++) {
     materialData[i] = materials[i].getProperties();
   }
-  glBindBuffer(GL_UNIFORM_BUFFER, muMaterialUBO);
-  glBufferData(GL_UNIFORM_BUFFER, sizeof(materialData), materialData,
-               GL_STATIC_DRAW);
-  glBindBuffer(GL_UNIFORM_BUFFER, 0);
+  mUBO.bufferData(sizeof(materialData), materialData, GL_STATIC_DRAW);
 
   // copy vertexBuffer/elementBuffer to GPU mVBO/mEBO
-  glBindVertexArray(mVAO);
   mNumElements = elementBufferData.size();
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mEBO);
-  glBufferData(GL_ELEMENT_ARRAY_BUFFER,
-               mNumElements * sizeof(elementBufferData[0]),
-               &elementBufferData[0], GL_STATIC_DRAW);
-  glBindBuffer(GL_ARRAY_BUFFER, mVBO);
-  glBufferData(GL_ARRAY_BUFFER,
-               vertexBufferData.size() * sizeof(vertexBufferData[0]),
-               &vertexBufferData[0], GL_STATIC_DRAW);
-  // configure vertex attributes
-  glEnableVertexAttribArray(0);
-  glEnableVertexAttribArray(1);
-  glEnableVertexAttribArray(2);
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertexBuffer),
-                        (GLvoid *)0);
-  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertexBuffer),
-                        (GLvoid *)(offsetof(MeshVertexBuffer, aNormal)));
-  glVertexAttribIPointer(2, 1, GL_UNSIGNED_INT, sizeof(MeshVertexBuffer),
-                         (GLvoid *)(offsetof(MeshVertexBuffer, aMaterialIdx)));
-  glBindVertexArray(0);
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+  mEBO.bufferData(mNumElements * sizeof(elementBufferData[0]),
+                  &elementBufferData[0], GL_STATIC_DRAW);
+  mVBO.bufferData(vertexBufferData.size() * sizeof(vertexBufferData[0]),
+                  &vertexBufferData[0], GL_STATIC_DRAW);
+
+  mVAO.bindVertexArray();
+  mVAO.vertexAttribPointer(mVBO, 0, 3, GL_FLOAT, GL_FALSE,
+                           sizeof(MeshVertexBuffer), (GLvoid *)0);
+  mVAO.vertexAttribPointer(mVBO, 1, 3, GL_FLOAT, GL_FALSE,
+                           sizeof(MeshVertexBuffer),
+                           (GLvoid *)(offsetof(MeshVertexBuffer, aNormal)));
+  mVAO.vertexAttribIPointer(
+      mVBO, 2, 1, GL_UNSIGNED_INT, sizeof(MeshVertexBuffer),
+      (GLvoid *)(offsetof(MeshVertexBuffer, aMaterialIdx)));
+
+  mEBO.bindBuffer();
+
+  mVAO.unbind();
+  mVBO.unbind();
+  mEBO.unbind();
 };
 
-void RP_Material::draw(const Camera &camera, const Light &light,
-                       const ::glm::mat4 &uMVP, const glm::mat4 &uLightMVP,
-                       GLuint FBO) {
+void RP_Material::draw(const glm::vec3 &uCameraPos, const Light &light,
+                       const glm::mat4 &uMVP, const glm::mat4 &uLightMVP,
+                       const glm::mat4 &uModelMatrix, const RP_FBO &FBO) const {
   // set globals
   GLboolean gDepthTest, gCullFace;
   GLint gCullFaceMode, gFrontFace;
@@ -71,9 +59,6 @@ void RP_Material::draw(const Camera &camera, const Light &light,
   // Set Shader
   mShader.useProgram();
   // Set Uniforms
-  glm::vec3 uCameraPos = getCameraPos(camera.transform);
-  glm::mat3 uWorldMatrix =
-      glm::mat3(1.0f); // no inverse-transpose for orthogonal matrix
   glUniform3fv(mShader.getUniformLocation("uCameraPos"), 1,
                glm::value_ptr(uCameraPos));
   glUniform3fv(mShader.getUniformLocation("uAmbientLightColor"), 1,
@@ -88,26 +73,26 @@ void RP_Material::draw(const Camera &camera, const Light &light,
                      glm::value_ptr(uMVP));
   glUniformMatrix4fv(mShader.getUniformLocation("uLightMVP"), 1, GL_FALSE,
                      glm::value_ptr(uLightMVP));
-  glUniformMatrix3fv(mShader.getUniformLocation("uWorldMatrix"), 1, GL_FALSE,
-                     glm::value_ptr(uWorldMatrix));
+  glUniformMatrix4fv(mShader.getUniformLocation("uModelMatrix"), 1, GL_FALSE,
+                     glm::value_ptr(uModelMatrix));
   glUniform1f(mShader.getUniformLocation("uSpecularPower"), 32.0f);
   glUniform1f(mShader.getUniformLocation("uShininessScale"), 2000.0f);
 
   // Bind Uniform Blocks
-  glBindBufferBase(GL_UNIFORM_BUFFER, muMaterialBlockBinding, muMaterialUBO);
+  mUBO.bindBufferBase(muMaterialBlockBinding);
 
   // Bind Textures
   glUniform1i(mShader.getUniformLocation("uTexture"), 0);
   glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_2D, FBO);
+  FBO.bindTexture(GL_TEXTURE_2D);
 
   // Bind VAO
-  glBindVertexArray(mVAO);
+  mVAO.bindVertexArray();
 
   // Draw
   glDrawElements(GL_TRIANGLES, mNumElements, GL_UNSIGNED_INT, 0);
 
-  glBindVertexArray(0);
+  mVAO.unbind();
   glBindTexture(GL_TEXTURE_2D, 0);
 
   if (gDepthTest == GL_FALSE)
@@ -118,5 +103,5 @@ void RP_Material::draw(const Camera &camera, const Light &light,
   glFrontFace(gFrontFace);
 };
 
-GLuint RP_Material::getVBO() const { return mVBO; };
-GLuint RP_Material::getEBO() const { return mEBO; };
+const RP_VBO &RP_Material::getVBO() const { return mVBO; };
+const RP_EBO &RP_Material::getEBO() const { return mEBO; };

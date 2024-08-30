@@ -57,7 +57,7 @@ static void quit_game(int code) {
   exit(code);
 }
 
-void initGLWindow() {
+void initGLWindow(int width, int height) {
   if (SDL_Init(SDL_INIT_VIDEO) < 0) {
     std::cout << "SDL could not SDL_Init! SDL Error: " << SDL_GetError()
               << std::endl;
@@ -73,11 +73,10 @@ void initGLWindow() {
   SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
   SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
   SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-  gWindow =
-      SDL_CreateWindow("Blade3D", SDL_WINDOWPOS_CENTERED,
-                       SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH, SCREEN_HEIGHT,
-                       SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE |
-                           SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_BORDERLESS);
+  gWindow = SDL_CreateWindow(
+      "Blade3D", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width, height,
+      SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI |
+          SDL_WINDOW_BORDERLESS);
   if (gWindow == NULL) {
     std::cout << "Window could not be created! SDL Error: " << SDL_GetError()
               << std::endl;
@@ -131,20 +130,29 @@ void initImGui() {
 }
 
 void renderGUI(Uint64 cpu_us, Uint64 gui_us, Uint64 gpu_us, Camera &camera,
-               Light &light) {
-  ImGuiIO &io = ImGui::GetIO();
+               Light &light, glm::mat4 &uModelMatrix) {
   ImGui_ImplOpenGL3_NewFrame();
   ImGui_ImplSDL2_NewFrame();
   ImGui::NewFrame();
+
+  ImGuiIO &io = ImGui::GetIO();
   ImGui::Begin("Performance Counters");
   ImGui::Text("cpu=%luus", cpu_us);
   ImGui::Text("gui=%luus", gui_us);
   ImGui::Text("gpu=%luus", gpu_us);
-  ImGui::DragFloat4("matrix0", &camera.transform[0][0], .01f, -5.0f, 5.0f);
-  ImGui::DragFloat4("matrix1", &camera.transform[1][0], .01f, -5.0f, 5.0f);
-  ImGui::DragFloat4("matrix2", &camera.transform[2][0], .01f, -5.0f, 5.0f);
-  ImGui::DragFloat4("matrix3", &camera.transform[3][0], .01f, -5.0f, 5.0f);
-  ImGui::DragFloat3("light.uLightDir", &light.uLightDir[0], .01f, -10.0, 10.0f);
+  ImGui::DragFloat4("camera.transform[0]", &camera.transform[0][0], .01f, -5.0f,
+                    5.0f);
+  ImGui::DragFloat4("camera.transform[1]", &camera.transform[1][0], .01f, -5.0f,
+                    5.0f);
+  ImGui::DragFloat4("camera.transform[2]", &camera.transform[2][0], .01f, -5.0f,
+                    5.0f);
+  ImGui::DragFloat4("camera.transform[3]", &camera.transform[3][0], .01f, -5.0f,
+                    5.0f);
+  ImGui::DragFloat4("uModelMatrix[0]", &uModelMatrix[0][0], .01f, -5.0f, 5.0f);
+  ImGui::DragFloat4("uModelMatrix[1]", &uModelMatrix[1][0], .01f, -5.0f, 5.0f);
+  ImGui::DragFloat4("uModelMatrix[2]", &uModelMatrix[2][0], .01f, -5.0f, 5.0f);
+  ImGui::DragFloat4("uModelMatrix[3]", &uModelMatrix[3][0], .01f, -5.0f, 5.0f);
+  ImGui::DragFloat3("camera.target", &camera.target[0], .01f, -10.0, 10.0f);
   ImGui::DragFloat3("light.uLightPos", &light.uLightPos[0], .01f, -10.0f,
                     10.0f);
   ImGui::DragFloat("camera.fov", &camera.fov, 1.0f, 0.0f, 120.0f);
@@ -159,16 +167,15 @@ void renderGUI(Uint64 cpu_us, Uint64 gui_us, Uint64 gpu_us, Camera &camera,
 }
 
 int main(int argc, char *args[]) {
-  initGLWindow();
+  initGLWindow(SCREEN_WIDTH, SCREEN_HEIGHT);
   glEnable(GL_DEBUG_OUTPUT);
   glDebugMessageCallback(MessageCallback, 0);
   printGLInfo();
   initImGui();
 
   MeshGroup meshGroup = import("assets/fullroom/fullroom.obj");
-  RP_Material rpMaterial{};
-  rpMaterial.init(meshGroup.getMaterials(), meshGroup.getVertexBuffer(),
-                  meshGroup.getElementBuffer());
+  RP_Material rpMaterial{meshGroup.getMaterials(), meshGroup.getVertexBuffer(),
+                         meshGroup.getElementBuffer()};
   RP_ShadowMap rpShadowMap{rpMaterial.getVBO(), rpMaterial.getEBO(),
                            meshGroup.getNumElements(), 1024};
   RP_Tex rpTex{};
@@ -182,12 +189,16 @@ int main(int argc, char *args[]) {
   glm::mat4 transform{glm::lookAt(glm::vec3{0.0, 5.0, 5.0}, // position
                                   initialCameraTarget,      // target
                                   glm::vec3{0, 1, 0})};     // up
+  printf("transform=\n");
+  printMatrix(transform);
   Camera camera{.transform = transform,
                 .target = initialCameraTarget,
                 .aspectRatio = 1.0f * SCREEN_WIDTH / SCREEN_HEIGHT,
                 .fov = 45,
                 .near = 0.01f,
                 .far = 16.0f};
+  glm::mat4 uModelMatrix{
+      glm::rotate(glm::mat4(1.0f), -1.0f, glm::vec3(0.0, 1.0, 0.0))};
 
   SDL_Event event;
   bool quit = false;
@@ -249,35 +260,36 @@ int main(int argc, char *args[]) {
     static const float bg[] = {0.2f, 0.2f, 0.2f, 1.0f};
     glClearBufferfv(GL_COLOR, 0, bg);
 
-    glm::mat4 camearaProjection = glm::perspective(
+    glm::vec3 uCameraPos{getCameraPos(camera.transform)};
+    glm::mat4 cameraProjection = glm::perspective(
         glm::radians(camera.fov), camera.aspectRatio, camera.near, camera.far);
-    glm::mat4 mvp = camearaProjection * camera.transform;
+    glm::mat4 vp = cameraProjection * camera.transform;
+    glm::mat4 uMVP = vp * uModelMatrix;
 
     glm::mat4 lightTransform =
         glm::lookAt(light.uLightPos, camera.target, glm::vec3(0.0, 1.0, 0.0));
 
     glm::mat4 lightProjection = rpShadowMap.getProjection();
-    glm::mat4 uLightMVP = lightProjection * lightTransform;
-
-    glm::vec4 lightPosition = mvp * glm::vec4(light.uLightPos, 1.0);
-    glm::vec4 targetPosition = mvp * glm::vec4(camera.target, 1.0);
+    glm::mat4 uLightMVP = lightProjection * lightTransform * uModelMatrix;
 
     // shadow map pass
     rpShadowMap.draw(uLightMVP);
 
     // draw shadow map to screen
-    // rpTex.draw(rpShadowMap.getFramebuffer());
+    // rpTex.draw(rpShadowMap.getFBO());
 
     // material + lighting pass
-    rpMaterial.draw(camera, light, mvp, uLightMVP,
-                    rpShadowMap.getFramebuffer());
+    rpMaterial.draw(uCameraPos, light, uMVP, uLightMVP, uModelMatrix,
+                    rpShadowMap.getFBO());
 
     // 3d icons
-    rpIcon.draw(lightPosition, glm::vec4(1.0f, 1.0f, 0.0f, 1.0f));
-    rpIcon.draw(targetPosition, glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
+    rpIcon.draw(vp * glm::vec4(light.uLightPos, 1.0),
+                glm::vec4(1.0f, 1.0f, 0.0f, 1.0f));
+    rpIcon.draw(vp * glm::vec4(camera.target, 1.0),
+                glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
 
     tFinishDrawCalls = SDL_GetPerformanceCounter();
-    renderGUI(cpu_us, gui_us, gpu_us, camera, light);
+    renderGUI(cpu_us, gui_us, gpu_us, camera, light, uModelMatrix);
     tFinishGUIDraw = SDL_GetPerformanceCounter();
     glFinish(); // block so we get an accurate frametime
     tFinishRender = SDL_GetPerformanceCounter();

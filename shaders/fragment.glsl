@@ -49,26 +49,27 @@ float CalcShadowFactor(vec4 position) {
 
 void main() {
   Material material = uMaterial.materials[materialIdx];
-  vec3 ambientColor = uAmbientLightColor;
   vec3 nNormalDir = normalize(normalDir);
   vec3 lightDir = normalize(uLightDir);
   vec3 lightRelativePosition = uLightPos - worldPos;
   vec3 specLightDir = normalize(lightRelativePosition);
 
-  //diffuse color
+  //diffuse lighting
   vec3 diffuseColor = max(dot(nNormalDir, specLightDir), 0.0) *
                       uLightColor;
 
-  //specular
+  //specular lighting
   vec3 reflectDir = normalize(reflect(-specLightDir, nNormalDir));
   vec3 viewDir = normalize(worldPos - uCameraPos);
-
   float shininess = material.shininess / uShininessScale;
   float specularFactor = max(dot(reflectDir, -viewDir), 0.0);
   specularFactor = pow(specularFactor, uSpecularPower) * shininess;
 
-  vec3 finalColor = ambientColor * material.ambientColor * material.diffuseColor +
-                    CalcShadowFactor(lightSpacePosition) * (diffuseColor * material.diffuseColor +
-                    specularFactor * uLightColor * material.specularColor);
+  vec3 litColor = diffuseColor * material.diffuseColor +
+                  specularFactor * uLightColor * material.specularColor;
+    
+  vec3 ambientColor = uAmbientLightColor * material.ambientColor * material.diffuseColor;
+  vec3 finalColor = ambientColor +
+                    CalcShadowFactor(lightSpacePosition) * litColor;
   FragColor = vec4(clamp(finalColor, 0.0, 1.0), 1.0f);
 };

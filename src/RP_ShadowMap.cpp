@@ -6,15 +6,12 @@
 #include <glm/glm.hpp>
 #include <stdio.h>
 
-RP_ShadowMap::RP_ShadowMap(GLuint VBO, GLuint EBO, GLuint numElements,
-                           GLuint textureSize)
+RP_ShadowMap::RP_ShadowMap(const RP_VBO &VBO, const RP_EBO &EBO,
+                           GLuint numElements, GLuint textureSize)
     : mDepthShader{"shaders/shadow_map_vertex.glsl",
                    "shaders/shadow_map_fragment.glsl"},
-      mVBO{VBO}, mEBO{EBO}, mNumElements{numElements},
-      mTextureSize{textureSize} {
-  glGenFramebuffers(1, &mDepthFBO);
-  glGenTextures(1, &mDepthTexture);
-  glBindTexture(GL_TEXTURE_2D, mDepthTexture);
+      mNumElements{numElements}, mTextureSize{textureSize} {
+  mTexture.bindTexture(GL_TEXTURE_2D);
   glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32F, mTextureSize,
                mTextureSize, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -23,35 +20,30 @@ RP_ShadowMap::RP_ShadowMap(GLuint VBO, GLuint EBO, GLuint numElements,
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
   glm::vec4 borderColor{0.0, 1.0, 1.0, 1.0};
   glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, &borderColor[0]);
-  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, mDepthFBO);
-  glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
-                         GL_TEXTURE_2D, mDepthTexture, 0);
+  mFBO.bindDrawBuffer();
+  mTexture.framebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
+                                GL_TEXTURE_2D, 0);
 
   GLenum Status = glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER);
 
   if (Status != GL_FRAMEBUFFER_COMPLETE) {
     printf("FB error, status: 0x%x\n", Status);
   }
-  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-  glBindTexture(GL_TEXTURE_2D, 0);
+  mFBO.unbindDrawBuffer();
 
-  glGenVertexArrays(1, &mDepthVAO);
-  glBindVertexArray(mDepthVAO);
-  glBindBuffer(GL_ARRAY_BUFFER, mVBO);
-  glEnableVertexAttribArray(0);
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertexBuffer),
-                        (GLvoid *)0);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mEBO);
-  glBindVertexArray(0);
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+  mVAO.bindVertexArray();
+  mVAO.vertexAttribPointer(VBO, 0, 3, GL_FLOAT, GL_FALSE,
+                           sizeof(MeshVertexBuffer), (GLvoid *)0);
+  EBO.bindBuffer();
+  mVAO.unbind();
+  EBO.unbind();
 };
 
-glm::mat4 RP_ShadowMap::getProjection() {
+glm::mat4 RP_ShadowMap::getProjection() const {
   return glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 100.0f);
 }
 
-void RP_ShadowMap::draw(const glm::mat4 &uMVP) {
+void RP_ShadowMap::draw(const glm::mat4 &uMVP) const {
   glm::ivec4 vp{};
   GLboolean gDepthTest, gCullFace;
   glGetIntegerv(GL_VIEWPORT, &vp[0]);
@@ -63,12 +55,12 @@ void RP_ShadowMap::draw(const glm::mat4 &uMVP) {
   mDepthShader.useProgram();
   glUniformMatrix4fv(mDepthShader.getUniformLocation("uMVP"), 1, GL_FALSE,
                      glm::value_ptr(uMVP));
-  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, mDepthFBO);
+  mFBO.bindDrawBuffer();
   glClear(GL_DEPTH_BUFFER_BIT);
-  glBindVertexArray(mDepthVAO);
+  mVAO.bindVertexArray();
   glDrawElements(GL_TRIANGLES, mNumElements, GL_UNSIGNED_INT, 0);
-  glBindVertexArray(0);
-  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+  mVAO.unbind();
+  mFBO.unbindDrawBuffer();
   glUseProgram(0);
   glViewport(vp[0], vp[1], vp[2], vp[3]);
   if (gDepthTest == GL_FALSE)
@@ -77,4 +69,4 @@ void RP_ShadowMap::draw(const glm::mat4 &uMVP) {
     glEnable(GL_CULL_FACE);
 };
 
-GLuint RP_ShadowMap::getFramebuffer() { return mDepthFBO; };
+const RP_FBO &RP_ShadowMap::getFBO() const { return mFBO; };

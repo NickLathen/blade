@@ -1,7 +1,8 @@
 #version 300 es
 
 uniform mat4 uMVP;
-uniform mat3 uWorldMatrix;
+uniform mat4 uModelMatrix;
+uniform mat4 uCameraTransform;
 uniform mat4 uLightMVP;
 
 layout (location = 0) in vec3 aPos;
@@ -12,8 +13,8 @@ out vec3 worldPos;
 flat out uint materialIdx;
 out vec4 lightSpacePosition;
 void main() {
-    normalDir = uWorldMatrix * aNormal;
-    worldPos = uWorldMatrix * aPos;
+    normalDir = mat3(uModelMatrix) * aNormal;
+    worldPos = (uModelMatrix * vec4(aPos, 1.0)).xyz;
     materialIdx = aMaterialIdx;
     gl_Position = uMVP * vec4(aPos, 1.0);
     lightSpacePosition = uLightMVP * vec4(aPos, 1.0);
