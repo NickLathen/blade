@@ -8,7 +8,6 @@ CXX=clang
 CXXFLAGS=$(STD) $(SANITIZE) $(WARNALL) $(DEBUG) $(INCLUDES)
 
 BUILD_FILES=src/main.cpp \
-            src/Game.cpp \
             src/Platform.cpp \
             src/utils.cpp \
             src/Shader.cpp \
@@ -20,6 +19,8 @@ BUILD_FILES=src/main.cpp \
             src/RP_Tex \
             src/RP_Material
 
+GAME_FILES=src/Game/Game.cpp
+
 IMGUI_BUILD_FILES=imgui/imgui.cpp \
                   imgui/backends/imgui_impl_sdl2.cpp \
                   imgui/backends/imgui_impl_opengl3.cpp \
@@ -27,7 +28,7 @@ IMGUI_BUILD_FILES=imgui/imgui.cpp \
                   imgui/imgui_tables.cpp \
                   imgui/imgui_widgets.cpp \
                   imgui/imgui_demo.cpp
-SOURCES=$(BUILD_FILES) $(IMGUI_BUILD_FILES)
+SOURCES=$(BUILD_FILES) $(GAME_FILES) $(IMGUI_BUILD_FILES)
 OBJS=$(addprefix build/, $(addsuffix .o, $(basename $(SOURCES))))
 
 all: build/main

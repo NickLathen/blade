@@ -181,6 +181,19 @@ private:
   GLuint mTextureSize{0};
 };
 
+class RP_Terrain {
+public:
+  RP_Terrain();
+  RP_NEVER_COPY(RP_Terrain);
+  void draw(const glm::mat4 &uMVP) const;
+
+private:
+  const RP_VAO mVAO;
+  const RP_VBO mVBO;
+  const RP_EBO mEBO;
+  GLuint mNumElements{0};
+};
+
 class RP_Icon {
 public:
   RP_Icon();

@@ -3,6 +3,7 @@ precision highp float;
 
 in vec3 normalDir;
 in vec3 worldPos;
+in vec2 texCoords;
 in vec4 lightSpacePosition;
 flat in uint materialIdx;
 out vec4 FragColor;

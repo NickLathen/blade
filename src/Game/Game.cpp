@@ -1,11 +1,11 @@
 #include <imgui.h>
 #include <iostream>
 
-#include "Game.hpp"
-#include "MeshGroup.hpp"
-#include "Platform.hpp"
-#include "RenderPass.hpp"
-#include "utils.hpp"
+#include "../Game.hpp"
+#include "../MeshGroup.hpp"
+#include "../Platform.hpp"
+#include "../RenderPass.hpp"
+#include "../utils.hpp"
 
 static void handle_resize(const SDL_Event *event, Camera &camera) {
   int x = event->window.data1;
@@ -60,6 +60,7 @@ Game::Game(Platform *platform) : mPlatform{platform} {
             .uLightDir = {-1.0f, 1.0f, 0.5f},
             .uLightPos = {-1.0f, 1.0f, 0.5f},
             .uLightColor = {1.0f, 1.0f, 1.0f}};
+
   glm::vec3 initialCameraTarget{0.0f, 0.5f, 0.0f};
   glm::mat4 transform{glm::lookAt(glm::vec3{0.0, 5.0, 5.0}, // position
                                   initialCameraTarget,      // target

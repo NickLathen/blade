@@ -3,6 +3,7 @@
         {
             "name": "Linux",
             "includePath": [
+                "${workspaceFolder}/src/Game",
                 "${workspaceFolder}/include",
                 "${workspaceFolder}/imgui",
                 "${workspaceFolder}/imgui/backends",
