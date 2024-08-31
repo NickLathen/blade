@@ -56,6 +56,7 @@ Game::Game(Platform *platform) : mPlatform{platform} {
                        mMeshGroups[0].getNumElements(), 1024);
   mRPTex.emplace();
   mRPIcon.emplace();
+  mRPTerrain.emplace();
   mLight = {.uAmbientLightColor = {.1f, .1f, .1f},
             .uLightDir = {-1.0f, 1.0f, 0.5f},
             .uLightPos = {-1.0f, 1.0f, 0.5f},
@@ -117,6 +118,9 @@ void Game::render() {
   mRPMaterial.value().draw(uCameraPos, mLight, uMVP, uLightMVP, muModelMatrix,
                            mRPShadowMap.value().getFBO());
 
+  // terrain
+  mRPTerrain.value().draw(uCameraPos, mLight, uMVP, uLightMVP, muModelMatrix,
+                          mRPShadowMap.value().getFBO());
   // 3d icons
   mRPIcon.value().draw(vp * glm::vec4(mLight.uLightPos, 1.0),
                        glm::vec4(1.0f, 1.0f, 0.0f, 1.0f));

@@ -3,11 +3,12 @@ precision highp float;
 
 in vec3 normalDir;
 in vec3 worldPos;
+in vec2 texCoords;
 in vec4 lightSpacePosition;
-flat in uint materialIdx;
 out vec4 FragColor;
 
 uniform sampler2D uLightDepthTexture;
+uniform sampler2D uDiffuseTexture;
 
 uniform vec3 uAmbientLightColor;
 uniform vec3 uLightDir;
@@ -46,9 +47,8 @@ float CalcShadowFactor(vec4 position) {
   return 1.0;
 }
 
-
 void main() {
-  Material material = uMaterial.materials[materialIdx];
+  Material material = uMaterial.materials[0];
   vec3 nNormalDir = normalize(normalDir);
   vec3 lightDir = normalize(uLightDir);
   vec3 lightRelativePosition = uLightPos - worldPos;
@@ -69,7 +69,6 @@ void main() {
                   specularFactor * uLightColor * material.specularColor;
     
   vec3 ambientColor = uAmbientLightColor * material.ambientColor * material.diffuseColor;
-  vec3 finalColor = ambientColor +
-                    CalcShadowFactor(lightSpacePosition) * litColor;
+  vec3 finalColor = ambientColor + litColor;
   FragColor = vec4(clamp(finalColor, 0.0, 1.0), 1.0f);
 };

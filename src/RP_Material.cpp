@@ -9,7 +9,7 @@ RP_Material::RP_Material(const std::vector<Material> &materials,
     : mShader{"shaders/vertex.glsl", "shaders/fragment.glsl"} {
   mShader.setUniformBlockBinding("uMaterialBlock", muMaterialBlockBinding);
   mShader.useProgram();
-  mShader.uniform1i("uTexture", muTextureBinding);
+  mShader.uniform1i("uLightDepthTexture", muLightDepthTexture);
   glUseProgram(0);
 
   // Copy mMaterials to GPU muMaterialUBO
@@ -77,7 +77,7 @@ void RP_Material::draw(const glm::vec3 &uCameraPos, const Light &light,
   mUBO.bindBufferBase(muMaterialBlockBinding);
 
   // Bind Textures
-  glActiveTexture(GL_TEXTURE0 + muTextureBinding);
+  glActiveTexture(GL_TEXTURE0 + muLightDepthTexture);
   FBO.bindTexture(GL_TEXTURE_2D);
 
   // Bind VAO

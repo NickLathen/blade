@@ -36,5 +36,6 @@ private:
   std::optional<RP_ShadowMap> mRPShadowMap{};
   std::optional<RP_Tex> mRPTex{};
   std::optional<RP_Icon> mRPIcon{};
+  std::optional<RP_Terrain> mRPTerrain{};
   GameTimer mGameTimer{};
 };

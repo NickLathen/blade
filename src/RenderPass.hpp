@@ -160,7 +160,7 @@ private:
   const RP_EBO mEBO;
   GLuint mNumElements{0};
   const GLuint muMaterialBlockBinding{0};
-  const GLuint muTextureBinding{0};
+  const GLuint muLightDepthTexture{0};
 };
 
 class RP_ShadowMap {
@@ -185,12 +185,20 @@ class RP_Terrain {
 public:
   RP_Terrain();
   RP_NEVER_COPY(RP_Terrain);
-  void draw(const glm::mat4 &uMVP) const;
+  void draw(const glm::vec3 &uCameraPos, const Light &light,
+            const glm::mat4 &uMVP, const glm::mat4 &uLightMVP,
+            const glm::mat4 &uModelMatrix, const RP_FBO &FBO) const;
 
 private:
+  Shader mShader;
   const RP_VAO mVAO;
   const RP_VBO mVBO;
   const RP_EBO mEBO;
+  const RP_UBO mUBO;
+  const RP_Texture mTexture;
+  GLuint muLightDepthTexture{0};
+  GLuint muDiffuseTexture{1};
+  GLuint muMaterialBlockBinding{0};
   GLuint mNumElements{0};
 };
 
