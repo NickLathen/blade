@@ -20,5 +20,8 @@ glm::vec3 getCameraPos(const glm::mat4 &viewMatrix);
 void zoomCamera(glm::mat4 &viewMatrix, glm::vec3 &target, float zoomAmount);
 void orbitYaw(glm::mat4 &viewMatrix, glm::vec3 &target, float amount);
 void orbitPitch(glm::mat4 &viewMatrix, glm::vec3 &target, float amount);
+void rotateYaw(glm::mat4 &viewMatrix, float amount);
+void rotatePitch(glm::mat4 &viewMatrix, float amount);
 void slideView(glm::mat4 &viewMatrix, glm::vec3 &target, float xAmount,
                float yAmount);
+void moveAlongCameraAxes(glm::mat4 &viewMatrix, glm::vec3 translation);

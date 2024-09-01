@@ -51,7 +51,7 @@ Game::Game(Platform *platform) : mPlatform{platform} {
   mRPMaterial.emplace_back(mMeshGroups[0].getMaterials(),
                            mMeshGroups[0].getVertexBuffer(),
                            mMeshGroups[0].getElementBuffer());
-  mRPShadowMap.emplace_back(1024);
+  mRPDepthMap.emplace_back(1024);
   mRPTex.emplace_back();
   mRPIcon.emplace_back();
   mRPTerrain.emplace_back();
@@ -60,10 +60,11 @@ Game::Game(Platform *platform) : mPlatform{platform} {
             .uLightPos = {-1.0f, 1.0f, 0.5f},
             .uLightColor = {1.0f, 1.0f, 1.0f}};
 
-  glm::vec3 initialCameraTarget{0.0f, 0.5f, 0.0f};
-  glm::mat4 transform{glm::lookAt(glm::vec3{0.0, 5.0, 5.0}, // position
-                                  initialCameraTarget,      // target
-                                  glm::vec3{0, 1, 0})};     // up
+  glm::vec3 initialCameraPos{2, 2, 2};
+  glm::vec3 initialCameraTarget{initialCameraPos + glm::vec3(0, 0, -1)};
+  glm::mat4 transform{glm::lookAt(initialCameraPos,     // position
+                                  initialCameraTarget,  // target
+                                  glm::vec3{0, 1, 0})}; // up
   glm::vec2 drawableSize{mPlatform->getDrawableSize()};
   mCamera = {.transform = transform,
              .target = initialCameraTarget,
@@ -87,8 +88,87 @@ void Game::beginFrame() {
                       (mGameTimer.countPerMicrosecond);
   mGameTimer.tFrameStart = SDL_GetPerformanceCounter();
 }
-
+void Game::event(const SDL_Event &event) {
+  switch (event.type) {
+  case SDL_QUIT:
+    mPlatform->queue_quit();
+    break;
+  case SDL_KEYDOWN: {
+    switch (event.key.keysym.sym) {
+    case SDLK_q:
+      mPlatform->queue_quit();
+      break;
+    }
+    break;
+  }
+  case SDL_MOUSEWHEEL: {
+    moveAlongCameraAxes(mCamera.transform,
+                        glm::vec3(0, 0, 1.0f * event.motion.x * .01f));
+    break;
+  }
+  case SDL_WINDOWEVENT:
+    if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
+      handle_resize(&event, mCamera);
+    }
+    break;
+  }
+}
+void handleInput(Camera &camera) {
+  float AMOUNT = .01f;
+  int x, y, l;
+  Uint32 mouseButtons = SDL_GetRelativeMouseState(&x, &y);
+  const Uint8 *keyboardButtons = SDL_GetKeyboardState(&l);
+  glm::vec3 movement{0.0};
+  if (keyboardButtons[SDL_SCANCODE_W]) {
+    movement.z += 1;
+  }
+  if (keyboardButtons[SDL_SCANCODE_A]) {
+    movement.x -= 1;
+  }
+  if (keyboardButtons[SDL_SCANCODE_S]) {
+    movement.z -= 1;
+  }
+  if (keyboardButtons[SDL_SCANCODE_D]) {
+    movement.x += 1;
+  }
+  if (keyboardButtons[SDL_SCANCODE_R]) {
+    movement.y += 1;
+  }
+  if (keyboardButtons[SDL_SCANCODE_F]) {
+    movement.y -= 1;
+  }
+  if (movement != glm::vec3{0.0}) {
+    movement = glm::normalize(movement);
+    moveAlongCameraAxes(camera.transform, movement * AMOUNT);
+  }
+  if (x != 0 || y != 0) {
+    float SENSITIVITY = 0.005f;
+    float xRel = 1.0 * x * SENSITIVITY;
+    float yRel = -1.0 * y * SENSITIVITY;
+    if (mouseButtons & SDL_BUTTON_MMASK) {
+      if (keyboardButtons[SDL_SCANCODE_LSHIFT]) {
+        slideView(camera.transform, camera.target, xRel, yRel);
+      } else {
+        if (yRel != 0) {
+          orbitPitch(camera.transform, camera.target, yRel);
+        }
+        if (xRel != 0) {
+          orbitYaw(camera.transform, camera.target, -xRel);
+        }
+      }
+    }
+    if (mouseButtons & SDL_BUTTON_RMASK) {
+      if (yRel != 0) {
+        rotatePitch(camera.transform, yRel);
+      }
+      if (xRel != 0) {
+        rotateYaw(camera.transform, -xRel);
+      }
+    }
+  }
+}
 void Game::render() {
+  handleInput(mCamera);
   mGameTimer.tFinishEvents = SDL_GetPerformanceCounter();
   glClear(GL_DEPTH_BUFFER_BIT);
   static const float bg[] = {0.2f, 0.2f, 0.2f, 1.0f};
@@ -105,27 +185,27 @@ void Game::render() {
 
   glm::mat4 lightTransform =
       glm::lookAt(mLight.uLightPos, mCamera.target, glm::vec3(0.0, 1.0, 0.0));
-  glm::mat4 lightProjection = mRPShadowMap[0].getProjection();
+  glm::mat4 lightProjection = mRPDepthMap[0].getProjection();
   glm::mat4 lightVP = lightProjection * lightTransform;
   glm::mat4 uModelLightVP = lightVP * muModelMatrix;
   glm::mat4 uTerrainLightVP = lightVP * muTerrainMatrix;
 
   // shadow map pass
-  mRPShadowMap[0].begin();
-  mRPShadowMap[0].setMVP(uModelLightVP);
+  mRPDepthMap[0].begin();
+  mRPDepthMap[0].setMVP(uModelLightVP);
   mRPMaterial[0].drawVertices();
-  mRPShadowMap[0].setMVP(uTerrainLightVP);
+  mRPDepthMap[0].setMVP(uTerrainLightVP);
   mRPTerrain[0].drawVertices();
-  mRPShadowMap[0].end();
+  mRPDepthMap[0].end();
 
   // draw pass
   mRPMaterial[0].draw(uCameraPos, mLight, uModelVP, uModelLightVP,
-                      muModelMatrix, mRPShadowMap[0].getFBO());
+                      muModelMatrix, mRPDepthMap[0].getFBO());
   mRPTerrain[0].draw(uCameraPos, mLight, uTerrainVP, uTerrainLightVP,
-                     muTerrainMatrix, mRPShadowMap[0].getFBO());
+                     muTerrainMatrix, mRPDepthMap[0].getFBO());
 
   // draw shadow map to screen
-  // mRPTex[0].draw(mRPShadowMap[0].getFBO());
+  // mRPTex[0].draw(mRPDepthMap[0].getFBO());
 
   // 3d icons
   mRPIcon[0].draw(vp * glm::vec4(mLight.uLightPos, 1.0),
@@ -137,47 +217,4 @@ void Game::render() {
   mGameTimer.tFinishGUIDraw = SDL_GetPerformanceCounter();
   glFinish();
   mGameTimer.tFinishRender = SDL_GetPerformanceCounter();
-}
-void Game::event(const SDL_Event &event) {
-  switch (event.type) {
-  case SDL_QUIT:
-    mPlatform->queue_quit();
-    break;
-  case SDL_KEYDOWN:
-    switch (event.key.keysym.sym) {
-    case SDLK_q:
-      mPlatform->queue_quit();
-      break;
-    }
-    break;
-  case SDL_MOUSEWHEEL: {
-    // zoom
-    zoomCamera(mCamera.transform, mCamera.target, event.motion.x * 0.1f);
-    break;
-  }
-  case SDL_MOUSEMOTION: {
-    int x, y, l;
-    Uint32 mouseButtons = SDL_GetMouseState(&x, &y);
-    const Uint8 *keyboardButtons = SDL_GetKeyboardState(&l);
-    if (mouseButtons & SDL_BUTTON_MMASK) {
-      if (keyboardButtons[SDL_SCANCODE_LSHIFT]) {
-        slideView(mCamera.transform, mCamera.target, event.motion.xrel,
-                  event.motion.yrel);
-      } else {
-        if (event.motion.yrel != 0) {
-          orbitPitch(mCamera.transform, mCamera.target, event.motion.yrel);
-        }
-        if (event.motion.xrel != 0) {
-          orbitYaw(mCamera.transform, mCamera.target, event.motion.xrel);
-        }
-      }
-    }
-    break;
-  }
-  case SDL_WINDOWEVENT:
-    if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
-      handle_resize(&event, mCamera);
-    }
-    break;
-  }
 }

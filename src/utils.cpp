@@ -139,11 +139,36 @@ void printNode(aiNode *node, const aiScene *scene) {
 }
 void printMatrix(const glm::mat4 &m) {
   for (uint col = 0; col < 4; col++) {
-    printf("%.2f, ", m[col][0]);
-    printf("%.2f, ", m[col][1]);
-    printf("%.2f, ", m[col][2]);
-    printf("%.2f\n", m[col][3]);
+    printf("%.2f, ", m[0][col]);
+    printf("%.2f, ", m[1][col]);
+    printf("%.2f, ", m[2][col]);
+    printf("%.2f\n", m[3][col]);
   }
+}
+
+glm::vec3 getTranslation(const glm::mat4 &transform) {
+  return glm::vec3{transform[3][0], transform[3][1], transform[3][2]};
+}
+glm::vec3 getXAxis(const glm::mat4 &transform) {
+  return glm::normalize(
+      glm::vec3(transform[0][0], transform[1][0], transform[2][0]));
+}
+glm::vec3 getYAxis(const glm::mat4 &transform) {
+  return glm::normalize(
+      glm::vec3(transform[0][1], transform[1][1], transform[2][1]));
+}
+glm::vec3 getZAxis(const glm::mat4 &transform) {
+  return glm::normalize(
+      glm::vec3(transform[0][2], transform[1][2], transform[2][2]));
+}
+glm::vec3 getCameraRight(const glm::mat4 &cameraTransform) {
+  return getXAxis(cameraTransform);
+}
+glm::vec3 getCameraUp(const glm::mat4 &cameraTransform) {
+  return getYAxis(cameraTransform);
+}
+glm::vec3 getCameraForward(const glm::mat4 &cameraTransform) {
+  return -getZAxis(cameraTransform);
 }
 
 glm::vec3 getCameraPos(const glm::mat4 &viewMatrix) {
@@ -151,43 +176,43 @@ glm::vec3 getCameraPos(const glm::mat4 &viewMatrix) {
   glm::mat3 rotation{glm::inverse(inverseRotation)};
   glm::mat4 inverseTranslation{glm::mat4(rotation) * viewMatrix};
   glm::mat4 translation{glm::inverse(inverseTranslation)};
-  return glm::vec3{translation[3][0], translation[3][1], translation[3][2]};
+  return getTranslation(translation);
 };
-
-void zoomCamera(glm::mat4 &viewMatrix, glm::vec3 &target, float zoomAmount) {
-  glm::vec3 cameraForward =
-      glm::vec3(viewMatrix[0][2], viewMatrix[1][2], viewMatrix[2][2]);
-  cameraForward = glm::normalize(cameraForward);
-  // prevent zooming through target
-  viewMatrix = glm::translate(viewMatrix, cameraForward * zoomAmount);
-}
 
 void orbitYaw(glm::mat4 &viewMatrix, glm::vec3 &target, float amount) {
   glm::mat4 translated = glm::translate(viewMatrix, target);
   glm::mat4 rotated =
-      glm::rotate(translated, amount * 0.01f, glm::vec3(0.0f, 1.0f, 0.0f));
+      glm::rotate(translated, -amount, glm::vec3(0.0f, 1.0f, 0.0f));
   viewMatrix = glm::translate(rotated, -target);
 };
 
 void orbitPitch(glm::mat4 &viewMatrix, glm::vec3 &target, float amount) {
   glm::mat4 translated = glm::translate(viewMatrix, target);
-  glm::vec3 cameraRight =
-      glm::vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]);
-  cameraRight = glm::normalize(cameraRight);
-  glm::mat4 rotated = glm::rotate(translated, amount * 0.01f, cameraRight);
+  glm::vec3 cameraRight = getCameraRight(viewMatrix);
+  glm::mat4 rotated = glm::rotate(translated, -amount, cameraRight);
   viewMatrix = glm::translate(rotated, -target);
 };
 
-void slideView(glm::mat4 &viewMatrix, glm::vec3 &target, float xAmount,
-               float yAmount) {
-  glm::vec3 cameraRight =
-      glm::vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]);
-  cameraRight = glm::normalize(cameraRight);
-  glm::vec3 cameraUp =
-      glm::vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]);
-  cameraUp = glm::normalize(cameraUp);
-  glm::vec3 translation =
-      cameraUp * yAmount * 0.01f + cameraRight * -xAmount * 0.01f;
-  viewMatrix = glm::translate(viewMatrix, translation);
-  target -= translation;
+void rotateYaw(glm::mat4 &viewMatrix, float amount) {
+  glm::vec3 viewPosition{getCameraPos(viewMatrix)};
+  orbitYaw(viewMatrix, viewPosition, amount);
+};
+void rotatePitch(glm::mat4 &viewMatrix, float amount) {
+  glm::vec3 viewPosition{getCameraPos(viewMatrix)};
+  orbitPitch(viewMatrix, viewPosition, amount);
+};
+
+void moveAlongCameraAxes(glm::mat4 &viewMatrix, glm::vec3 translation) {
+  viewMatrix[3][0] -= translation.x;
+  viewMatrix[3][1] -= translation.y;
+  viewMatrix[3][2] += translation.z;
+}
+
+void slideView(glm::mat4 &viewMatrix, glm::vec3 &target, float rightAmount,
+               float upAmount) {
+  glm::vec3 cameraRight = getCameraRight(viewMatrix);
+  glm::vec3 cameraUp = getCameraUp(viewMatrix);
+  glm::vec3 translation = cameraUp * upAmount + cameraRight * rightAmount;
+  viewMatrix = glm::translate(viewMatrix, -translation);
+  target += translation;
 };

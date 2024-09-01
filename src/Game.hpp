@@ -33,7 +33,7 @@ private:
   glm::mat4 muTerrainMatrix;
   std::vector<MeshGroup> mMeshGroups{};
   std::vector<RP_Material> mRPMaterial{};
-  std::vector<RP_DepthMap> mRPShadowMap{};
+  std::vector<RP_DepthMap> mRPDepthMap{};
   std::vector<RP_Tex> mRPTex{};
   std::vector<RP_Icon> mRPIcon{};
   std::vector<RP_Terrain> mRPTerrain{};
