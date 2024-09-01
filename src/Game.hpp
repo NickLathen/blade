@@ -3,7 +3,6 @@
 #include "MeshGroup.hpp"
 #include "RenderPass.hpp"
 #include <SDL.h>
-#include <optional>
 
 struct GameTimer {
   Uint64 tFrameStart{0};
@@ -31,11 +30,12 @@ private:
   Light mLight;
   Camera mCamera;
   glm::mat4 muModelMatrix;
+  glm::mat4 muTerrainMatrix;
   std::vector<MeshGroup> mMeshGroups{};
-  std::optional<RP_Material> mRPMaterial{};
-  std::optional<RP_ShadowMap> mRPShadowMap{};
-  std::optional<RP_Tex> mRPTex{};
-  std::optional<RP_Icon> mRPIcon{};
-  std::optional<RP_Terrain> mRPTerrain{};
+  std::vector<RP_Material> mRPMaterial{};
+  std::vector<RP_DepthMap> mRPShadowMap{};
+  std::vector<RP_Tex> mRPTex{};
+  std::vector<RP_Icon> mRPIcon{};
+  std::vector<RP_Terrain> mRPTerrain{};
   GameTimer mGameTimer{};
 };

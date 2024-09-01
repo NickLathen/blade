@@ -1,6 +1,7 @@
 #pragma once
 
 #include "gl.hpp"
+#include "utils.hpp"
 #include <glm/ext.hpp>
 #include <glm/glm.hpp>
 #include <string>
@@ -8,12 +9,16 @@
 class Shader {
 public:
   Shader(const char *vertexPath, const char *fragPath);
-  Shader(Shader const &other) = delete;
-  Shader(Shader &&other) = delete;
-  ~Shader();
+  ~Shader() {
+    if (_program != 0) {
+      glDeleteProgram(_program);
+    }
+  };
+  NEVER_COPY(Shader);
+  Shader(Shader &&other) : _program{other._program} { other._program = 0; };
   inline void useProgram() const;
-  inline void setUniformBlockBinding(const std::string &blockName,
-                                     GLuint uniformBlockBinding) const;
+  inline void uniformBlockBlinding(const std::string &blockName,
+                                   GLuint blockBinding) const;
   inline void uniform3fv(const std::string &uniformName,
                          const glm::vec3 &value) const;
   inline void uniform4fv(const std::string &uniformName,
@@ -41,11 +46,10 @@ inline GLuint Shader::getUniformBlockIndex(const std::string &blockName) const {
   return glGetUniformBlockIndex(_program, blockName.c_str());
 };
 
-inline void Shader::setUniformBlockBinding(const std::string &blockName,
-                                           GLuint uniformBlockBinding) const {
+inline void Shader::uniformBlockBlinding(const std::string &blockName,
+                                         GLuint blockBinding) const {
   GLuint uniformBlockIndex = getUniformBlockIndex(blockName);
-  return glUniformBlockBinding(_program, uniformBlockIndex,
-                               uniformBlockBinding);
+  return glUniformBlockBinding(_program, uniformBlockIndex, blockBinding);
 };
 
 inline void Shader::uniform3fv(const std::string &uniformName,

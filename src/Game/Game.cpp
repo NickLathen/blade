@@ -48,16 +48,14 @@ void renderGUI(const GameTimer &gameTimer, Camera &camera, Light &light,
 
 Game::Game(Platform *platform) : mPlatform{platform} {
   mMeshGroups.emplace_back(import("assets/fullroom/fullroom.obj"));
-  mRPMaterial.emplace(mMeshGroups[0].getMaterials(),
-                      mMeshGroups[0].getVertexBuffer(),
-                      mMeshGroups[0].getElementBuffer());
-  mRPShadowMap.emplace(mRPMaterial.value().getVBO(),
-                       mRPMaterial.value().getEBO(),
-                       mMeshGroups[0].getNumElements(), 1024);
-  mRPTex.emplace();
-  mRPIcon.emplace();
-  mRPTerrain.emplace();
-  mLight = {.uAmbientLightColor = {.1f, .1f, .1f},
+  mRPMaterial.emplace_back(mMeshGroups[0].getMaterials(),
+                           mMeshGroups[0].getVertexBuffer(),
+                           mMeshGroups[0].getElementBuffer());
+  mRPShadowMap.emplace_back(1024);
+  mRPTex.emplace_back();
+  mRPIcon.emplace_back();
+  mRPTerrain.emplace_back();
+  mLight = {.uAmbientLightColor = {.2f, .2f, .2f},
             .uLightDir = {-1.0f, 1.0f, 0.5f},
             .uLightPos = {-1.0f, 1.0f, 0.5f},
             .uLightColor = {1.0f, 1.0f, 1.0f}};
@@ -72,8 +70,9 @@ Game::Game(Platform *platform) : mPlatform{platform} {
              .aspectRatio = 1.0f * drawableSize.x / drawableSize.y,
              .fov = 45,
              .near = 0.01f,
-             .far = 16.0f};
+             .far = 64.0f};
   muModelMatrix = glm::rotate(glm::mat4(1.0f), -1.0f, glm::vec3(0.0, 1.0, 0.0));
+  muTerrainMatrix = glm::mat4(1.0f);
   mGameTimer.countPerMicrosecond = SDL_GetPerformanceFrequency() / 1'000'000;
 }
 void Game::beginFrame() {
@@ -99,33 +98,40 @@ void Game::render() {
   glm::mat4 cameraProjection =
       glm::perspective(glm::radians(mCamera.fov), mCamera.aspectRatio,
                        mCamera.near, mCamera.far);
+  // glm::ortho(-3.0f, 3.0f, -3.0f, 3.0f, mCamera.near, mCamera.far);
   glm::mat4 vp = cameraProjection * mCamera.transform;
-  glm::mat4 uMVP = vp * muModelMatrix;
+  glm::mat4 uModelVP = vp * muModelMatrix;
+  glm::mat4 uTerrainVP = vp * muTerrainMatrix;
 
   glm::mat4 lightTransform =
       glm::lookAt(mLight.uLightPos, mCamera.target, glm::vec3(0.0, 1.0, 0.0));
-
-  glm::mat4 lightProjection = mRPShadowMap.value().getProjection();
-  glm::mat4 uLightMVP = lightProjection * lightTransform * muModelMatrix;
+  glm::mat4 lightProjection = mRPShadowMap[0].getProjection();
+  glm::mat4 lightVP = lightProjection * lightTransform;
+  glm::mat4 uModelLightVP = lightVP * muModelMatrix;
+  glm::mat4 uTerrainLightVP = lightVP * muTerrainMatrix;
 
   // shadow map pass
-  mRPShadowMap.value().draw(uLightMVP);
+  mRPShadowMap[0].begin();
+  mRPShadowMap[0].setMVP(uModelLightVP);
+  mRPMaterial[0].drawVertices();
+  mRPShadowMap[0].setMVP(uTerrainLightVP);
+  mRPTerrain[0].drawVertices();
+  mRPShadowMap[0].end();
+
+  // draw pass
+  mRPMaterial[0].draw(uCameraPos, mLight, uModelVP, uModelLightVP,
+                      muModelMatrix, mRPShadowMap[0].getFBO());
+  mRPTerrain[0].draw(uCameraPos, mLight, uTerrainVP, uTerrainLightVP,
+                     muTerrainMatrix, mRPShadowMap[0].getFBO());
 
   // draw shadow map to screen
-  // mRPTex.value().draw(mRPShadowMap.value().getFBO());
+  // mRPTex[0].draw(mRPShadowMap[0].getFBO());
 
-  // material + lighting pass
-  mRPMaterial.value().draw(uCameraPos, mLight, uMVP, uLightMVP, muModelMatrix,
-                           mRPShadowMap.value().getFBO());
-
-  // terrain
-  mRPTerrain.value().draw(uCameraPos, mLight, uMVP, uLightMVP, muModelMatrix,
-                          mRPShadowMap.value().getFBO());
   // 3d icons
-  mRPIcon.value().draw(vp * glm::vec4(mLight.uLightPos, 1.0),
-                       glm::vec4(1.0f, 1.0f, 0.0f, 1.0f));
-  mRPIcon.value().draw(vp * glm::vec4(mCamera.target, 1.0),
-                       glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
+  mRPIcon[0].draw(vp * glm::vec4(mLight.uLightPos, 1.0),
+                  glm::vec4(1.0f, 1.0f, 0.0f, 1.0f));
+  mRPIcon[0].draw(vp * glm::vec4(mCamera.target, 1.0),
+                  glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
   mGameTimer.tFinishDrawCalls = SDL_GetPerformanceCounter();
   renderGUI(mGameTimer, mCamera, mLight, muModelMatrix);
   mGameTimer.tFinishGUIDraw = SDL_GetPerformanceCounter();

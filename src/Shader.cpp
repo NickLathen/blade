@@ -51,8 +51,3 @@ Shader::Shader(const char *vertexPath, const char *fragPath) {
   glDeleteShader(fragmentShader);
   std::cout << "Loaded shaders:" << vertexPath << ", " << fragPath << std::endl;
 };
-Shader::~Shader() {
-  if (_program != 0) {
-    glDeleteProgram(_program);
-  }
-};

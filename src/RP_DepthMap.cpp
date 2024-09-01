@@ -6,11 +6,10 @@
 #include <glm/glm.hpp>
 #include <stdio.h>
 
-RP_ShadowMap::RP_ShadowMap(const RP_VBO &VBO, const RP_EBO &EBO,
-                           GLuint numElements, GLuint textureSize)
-    : mDepthShader{"shaders/shadow_map_vertex.glsl",
-                   "shaders/shadow_map_fragment.glsl"},
-      mNumElements{numElements}, mTextureSize{textureSize} {
+RP_DepthMap::RP_DepthMap(GLuint textureSize)
+    : mDepthShader{"shaders/depth_map_vertex.glsl",
+                   "shaders/depth_map_fragment.glsl"},
+      mTextureSize{textureSize} {
   mTexture.bindTexture(GL_TEXTURE_2D);
   glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32F, mTextureSize,
                mTextureSize, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
@@ -29,23 +28,14 @@ RP_ShadowMap::RP_ShadowMap(const RP_VBO &VBO, const RP_EBO &EBO,
     printf("FB error, status: 0x%x\n", Status);
   }
   mFBO.unbindFramebuffer(GL_DRAW_FRAMEBUFFER);
-
-  mVAO.bindVertexArray();
-  mVAO.vertexAttribPointer(VBO, 0, 3, GL_FLOAT, GL_FALSE,
-                           sizeof(MeshVertexBuffer), (GLvoid *)0);
-  EBO.bindBuffer();
-  mVAO.unbind();
-  EBO.unbind();
 };
 
-glm::mat4 RP_ShadowMap::getProjection() const {
+glm::mat4 RP_DepthMap::getProjection() const {
   return glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 100.0f);
 }
 
-void RP_ShadowMap::draw(const glm::mat4 &uMVP) const {
-  glm::ivec4 vp{};
-  GLboolean gDepthTest, gCullFace;
-  glGetIntegerv(GL_VIEWPORT, &vp[0]);
+void RP_DepthMap::begin() {
+  glGetIntegerv(GL_VIEWPORT, &gVP[0]);
   glGetBooleanv(GL_DEPTH_TEST, &gDepthTest);
   glGetBooleanv(GL_CULL_FACE, &gCullFace);
   glEnable(GL_DEPTH_TEST);
@@ -54,17 +44,20 @@ void RP_ShadowMap::draw(const glm::mat4 &uMVP) const {
   mFBO.bindFramebuffer(GL_DRAW_FRAMEBUFFER);
   glClear(GL_DEPTH_BUFFER_BIT);
   mDepthShader.useProgram();
+};
+
+void RP_DepthMap::setMVP(const glm::mat4 &uMVP) {
   mDepthShader.uniformMatrix4fv("uMVP", GL_FALSE, uMVP);
-  mVAO.bindVertexArray();
-  glDrawElements(GL_TRIANGLES, mNumElements, GL_UNSIGNED_INT, 0);
-  mVAO.unbind();
-  mFBO.unbindFramebuffer(GL_DRAW_FRAMEBUFFER);
+}
+
+void RP_DepthMap::end() {
   glUseProgram(0);
-  glViewport(vp[0], vp[1], vp[2], vp[3]);
+  mFBO.unbindFramebuffer(GL_DRAW_FRAMEBUFFER);
+  glViewport(gVP[0], gVP[1], gVP[2], gVP[3]);
   if (gDepthTest == GL_FALSE)
     glDisable(GL_DEPTH_TEST);
   if (gCullFace == GL_TRUE)
     glEnable(GL_CULL_FACE);
 };
 
-const RP_FBO &RP_ShadowMap::getFBO() const { return mFBO; };
+const RP_FBO &RP_DepthMap::getFBO() const { return mFBO; };

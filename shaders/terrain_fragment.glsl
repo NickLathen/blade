@@ -69,6 +69,7 @@ void main() {
                   specularFactor * uLightColor * material.specularColor;
     
   vec3 ambientColor = uAmbientLightColor * material.ambientColor * material.diffuseColor;
-  vec3 finalColor = ambientColor + litColor;
+  vec3 finalColor = ambientColor +
+                    CalcShadowFactor(lightSpacePosition) * litColor;
   FragColor = vec4(clamp(finalColor, 0.0, 1.0), 1.0f);
 };

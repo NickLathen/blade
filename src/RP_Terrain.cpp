@@ -20,7 +20,7 @@ float interpolate(float min, float max, float value, float minVal,
 RP_Terrain::RP_Terrain()
     : mShader{"shaders/terrain_vertex.glsl", "shaders/terrain_fragment.glsl"} {
   mShader.useProgram();
-  mShader.setUniformBlockBinding("uMaterialBlock", muMaterialBlockBinding);
+  mShader.uniformBlockBlinding("uMaterialBlock", muMaterialBlockBinding);
   mShader.uniform1i("uLightDepthTexture", muLightDepthTexture);
   mShader.uniform1i("uDiffuseTexture", muDiffuseTexture);
   glUseProgram(0);
@@ -39,8 +39,8 @@ RP_Terrain::RP_Terrain()
   // dy/dz = -sin(z)
   glm::vec2 xRange{-8.0, 8.0};
   glm::vec2 zRange{-8.0, 8.0};
-  uint width = 64;
-  uint depth = 64;
+  uint width = 32;
+  uint depth = 32;
   float magnitude = 0.5f;
   RP_Terrain_vertex_buffer terrainBuffer[width * depth];
   for (uint i = 0; i < depth; i++) {
@@ -101,10 +101,15 @@ RP_Terrain::RP_Terrain()
   mVBO.unbind();
   mEBO.unbind();
 }
+void RP_Terrain::drawVertices() const {
+  mVAO.bindVertexArray();
+  glDrawElements(GL_TRIANGLE_STRIP, mNumElements, GL_UNSIGNED_INT, 0);
+  mVAO.unbind();
+};
 void RP_Terrain::draw(const glm::vec3 &uCameraPos, const Light &light,
-                      const glm::mat4 &uMVP, const glm::mat4 &uLightMVP,
-                      const glm::mat4 &uModelMatrix, const RP_FBO &FBO) const {
-  // set globals
+                      const glm::mat4 &uTerrainMVP, const glm::mat4 &uLightMVP,
+                      const glm::mat4 &uTerrainMatrix,
+                      const RP_FBO &FBO) const {
   GLboolean gDepthTest, gCullFace;
   GLint gCullFaceMode, gFrontFace;
   glGetBooleanv(GL_DEPTH_TEST, &gDepthTest);
@@ -122,18 +127,17 @@ void RP_Terrain::draw(const glm::vec3 &uCameraPos, const Light &light,
   mShader.uniform3fv("uLightDir", light.uLightDir);
   mShader.uniform3fv("uLightColor", light.uLightColor);
   mShader.uniform3fv("uLightPos", light.uLightPos);
-  mShader.uniformMatrix4fv("uMVP", GL_FALSE, uMVP);
+  mShader.uniformMatrix4fv("uMVP", GL_FALSE, uTerrainMVP);
   mShader.uniformMatrix4fv("uLightMVP", GL_FALSE, uLightMVP);
-  mShader.uniformMatrix4fv("uModelMatrix", GL_FALSE, uModelMatrix);
+  mShader.uniformMatrix4fv("uModelMatrix", GL_FALSE, uTerrainMatrix);
   mShader.uniform1f("uSpecularPower", 32.0f);
   mShader.uniform1f("uShininessScale", 2000.0f);
-  mShader.uniformMatrix4fv("uMVP", GL_FALSE, uMVP);
   mUBO.bindBufferBase(muMaterialBlockBinding);
   glActiveTexture(GL_TEXTURE0 + muLightDepthTexture);
   FBO.bindTexture(GL_TEXTURE_2D);
-  mVAO.bindVertexArray();
-  glDrawElements(GL_TRIANGLE_STRIP, mNumElements, GL_UNSIGNED_INT, 0);
-  mVAO.unbind();
+
+  drawVertices();
+
   glBindTexture(GL_TEXTURE_2D, 0);
   glUseProgram(0);
   if (gDepthTest == GL_FALSE)

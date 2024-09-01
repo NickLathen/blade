@@ -7,6 +7,7 @@
 
 #include "Material.hpp"
 #include "Mesh.hpp"
+#include "utils.hpp"
 
 struct MeshMap {
   GLuint materialId;

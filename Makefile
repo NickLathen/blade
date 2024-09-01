@@ -14,7 +14,7 @@ BUILD_FILES=src/main.cpp \
             src/MeshGroup.cpp \
             src/Material.cpp \
             src/Mesh.cpp \
-            src/RP_ShadowMap.cpp \
+            src/RP_DepthMap.cpp \
             src/RP_Icon.cpp \
             src/RP_Tex.cpp \
             src/RP_Material.cpp \

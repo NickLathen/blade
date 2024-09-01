@@ -7,8 +7,8 @@ RP_Material::RP_Material(const std::vector<Material> &materials,
                          const std::vector<MeshVertexBuffer> &vertexBufferData,
                          const std::vector<GLuint> &elementBufferData)
     : mShader{"shaders/vertex.glsl", "shaders/fragment.glsl"} {
-  mShader.setUniformBlockBinding("uMaterialBlock", muMaterialBlockBinding);
   mShader.useProgram();
+  mShader.uniformBlockBlinding("uMaterialBlock", muMaterialBlockBinding);
   mShader.uniform1i("uLightDepthTexture", muLightDepthTexture);
   glUseProgram(0);
 
@@ -59,9 +59,7 @@ void RP_Material::draw(const glm::vec3 &uCameraPos, const Light &light,
   glCullFace(GL_BACK);
   glFrontFace(GL_CCW);
 
-  // Set Shader
   mShader.useProgram();
-  // Set Uniforms
   mShader.uniform3fv("uCameraPos", uCameraPos);
   mShader.uniform3fv("uAmbientLightColor", light.uAmbientLightColor);
   mShader.uniform3fv("uLightDir", light.uLightDir);
@@ -73,20 +71,13 @@ void RP_Material::draw(const glm::vec3 &uCameraPos, const Light &light,
   mShader.uniform1f("uSpecularPower", 32.0f);
   mShader.uniform1f("uShininessScale", 2000.0f);
 
-  // Bind Uniform Blocks
   mUBO.bindBufferBase(muMaterialBlockBinding);
 
-  // Bind Textures
   glActiveTexture(GL_TEXTURE0 + muLightDepthTexture);
   FBO.bindTexture(GL_TEXTURE_2D);
 
-  // Bind VAO
-  mVAO.bindVertexArray();
+  drawVertices();
 
-  // Draw
-  glDrawElements(GL_TRIANGLES, mNumElements, GL_UNSIGNED_INT, 0);
-
-  mVAO.unbind();
   glBindTexture(GL_TEXTURE_2D, 0);
 
   if (gDepthTest == GL_FALSE)
@@ -95,6 +86,12 @@ void RP_Material::draw(const glm::vec3 &uCameraPos, const Light &light,
     glDisable(GL_CULL_FACE);
   glCullFace(gCullFaceMode);
   glFrontFace(gFrontFace);
+};
+
+void RP_Material::drawVertices() const {
+  mVAO.bindVertexArray();
+  glDrawElements(GL_TRIANGLES, mNumElements, GL_UNSIGNED_INT, 0);
+  mVAO.unbind();
 };
 
 const RP_VBO &RP_Material::getVBO() const { return mVBO; };

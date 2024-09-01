@@ -4,6 +4,10 @@
 #include <glm/glm.hpp>
 #include <string>
 
+#define NEVER_COPY(T)                                                          \
+  T(const T &) = delete;                                                       \
+  T &operator=(const T &) = delete;
+
 std::string loadFileIntoString(const std::string &filePath);
 void printMaterial(const aiMaterial *material);
 void printVertices(const aiMesh *mesh);

@@ -48,6 +48,8 @@
         "sstream": "cpp",
         "fstream": "cpp",
         "cstring": "cpp",
-        "ctime": "cpp"
+        "ctime": "cpp",
+        "optional": "cpp",
+        "variant": "cpp"
     }
 }
