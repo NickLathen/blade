@@ -15,6 +15,9 @@ RP_DepthMap::RP_DepthMap(GLuint textureSize)
                mTextureSize, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE,
+                  GL_COMPARE_REF_TO_TEXTURE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
   glm::vec4 borderColor{0.0};
@@ -31,7 +34,9 @@ RP_DepthMap::RP_DepthMap(GLuint textureSize)
 };
 
 glm::mat4 RP_DepthMap::getProjection() const {
-  return glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 100.0f);
+  // return glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 100.0f);
+  float scale = 5.0f;
+  return glm::ortho(-scale, scale, -scale, scale, .01f, 60.0f);
 }
 
 void RP_DepthMap::begin() {

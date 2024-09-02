@@ -173,6 +173,67 @@ private:
   GLuint mTexture;
 };
 
+class Shader_Material {
+public:
+  Shader_Material() : mShader{"shaders/vertex.glsl", "shaders/fragment.glsl"} {
+    mShader.useProgram();
+    mShader.uniformBlockBlinding("uMaterialBlock", muMaterialBlockBinding);
+    mShader.uniform1i("uDepthTexture", muDepthTexture);
+    glUseProgram(0);
+  };
+  NEVER_COPY(Shader_Material);
+  Shader_Material(Shader_Material &&other)
+      : mShader{std::move(other.mShader)}, muDepthTexture{other.muDepthTexture},
+        muMaterialBlockBinding{other.muMaterialBlockBinding} {};
+  void begin() {
+    glGetBooleanv(GL_DEPTH_TEST, &gDepthTest);
+    glGetBooleanv(GL_CULL_FACE, &gCullFace);
+    glGetIntegerv(GL_CULL_FACE_MODE, &gCullFaceMode);
+    glGetIntegerv(GL_FRONT_FACE, &gFrontFace);
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
+    glFrontFace(GL_CCW);
+  }
+  void setUniforms(const glm::vec3 &uCameraPos, const Light &light,
+                   const glm::mat4 &uMVP, const glm::mat4 &uLightMVP,
+                   const glm::mat4 &uModelMatrix) const {
+    mShader.useProgram();
+    mShader.uniform3fv("uCameraPos", uCameraPos);
+    mShader.uniform3fv("uAmbientLightColor", light.uAmbientLightColor);
+    mShader.uniform3fv("uLightDir", light.uLightDir);
+    mShader.uniform3fv("uLightColor", light.uLightColor);
+    mShader.uniform3fv("uLightPos", light.uLightPos);
+    mShader.uniformMatrix4fv("uMVP", GL_FALSE, uMVP);
+    mShader.uniformMatrix4fv("uLightMVP", GL_FALSE, uLightMVP);
+    mShader.uniformMatrix4fv("uModelMatrix", GL_FALSE, uModelMatrix);
+    mShader.uniform1f("uSpecularPower", 32.0f);
+    mShader.uniform1f("uShininessScale", 2000.0f);
+  }
+  void bindMaterialsBuffer(const RP_UBO &UBO) const {
+    UBO.bindBufferBase(muMaterialBlockBinding);
+  }
+  void bindDepthTexture(const RP_FBO &FBO) const {
+    glActiveTexture(GL_TEXTURE0 + muDepthTexture);
+    FBO.bindTexture(GL_TEXTURE_2D);
+  }
+  void end() {
+    if (gDepthTest == GL_FALSE)
+      glDisable(GL_DEPTH_TEST);
+    if (gCullFace == GL_FALSE)
+      glDisable(GL_CULL_FACE);
+    glCullFace(gCullFaceMode);
+    glFrontFace(gFrontFace);
+  }
+
+private:
+  Shader mShader;
+  const GLuint muDepthTexture{0};
+  const GLuint muMaterialBlockBinding{0};
+  GLboolean gDepthTest, gCullFace;
+  GLint gCullFaceMode, gFrontFace;
+};
+
 class RP_Material {
 public:
   RP_Material(const std::vector<Material> &materials,
@@ -180,28 +241,19 @@ public:
               const std::vector<GLuint> &elementBufferData);
   NEVER_COPY(RP_Material);
   RP_Material(RP_Material &&other)
-      : mShader{std::move(other.mShader)}, mVAO{std::move(other.mVAO)},
-        mUBO{std::move(other.mUBO)}, mVBO{std::move(other.mVBO)},
-        mEBO{std::move(other.mEBO)}, mNumElements{other.mNumElements},
-        muMaterialBlockBinding{other.muMaterialBlockBinding},
-        muLightDepthTexture{other.muLightDepthTexture} {};
+      : mVAO{std::move(other.mVAO)}, mUBO{std::move(other.mUBO)},
+        mVBO{std::move(other.mVBO)}, mEBO{std::move(other.mEBO)},
+        mNumElements{other.mNumElements} {};
 
-  void draw(const glm::vec3 &uCameraPos, const Light &light,
-            const ::glm::mat4 &uMVP, const glm::mat4 &uLightMVP,
-            const glm::mat4 &uModelMatrix, const RP_FBO &FBO) const;
   void drawVertices() const;
-  const RP_VBO &getVBO() const;
-  const RP_EBO &getEBO() const;
+  const RP_UBO &getMaterialsBuffer() const { return mUBO; };
 
 private:
-  Shader mShader;
   RP_VAO mVAO;
   RP_UBO mUBO;
   RP_VBO mVBO;
   RP_EBO mEBO;
   GLuint mNumElements{0};
-  const GLuint muMaterialBlockBinding{0};
-  const GLuint muLightDepthTexture{0};
 };
 
 class RP_DepthMap {
@@ -234,28 +286,17 @@ public:
   RP_Terrain();
   NEVER_COPY(RP_Terrain);
   RP_Terrain(RP_Terrain &&other)
-      : mShader{std::move(other.mShader)}, mVAO{std::move(other.mVAO)},
-        mVBO{std::move(other.mVBO)}, mEBO{std::move(other.mEBO)},
-        mUBO{std::move(other.mUBO)}, mTexture{std::move(other.mTexture)},
-        muLightDepthTexture{other.muLightDepthTexture},
-        muDiffuseTexture{other.muDiffuseTexture},
-        muMaterialBlockBinding{other.muMaterialBlockBinding},
+      : mVAO{std::move(other.mVAO)}, mVBO{std::move(other.mVBO)},
+        mEBO{std::move(other.mEBO)}, mUBO{std::move(other.mUBO)},
         mNumElements{other.mNumElements} {};
-  void draw(const glm::vec3 &uCameraPos, const Light &light,
-            const glm::mat4 &uTerrainMVP, const glm::mat4 &uLightMVP,
-            const glm::mat4 &uTerrainMatrix, const RP_FBO &FBO) const;
   void drawVertices() const;
+  const RP_UBO &getMaterialsBuffer() const { return mUBO; };
 
 private:
-  Shader mShader;
   RP_VAO mVAO;
   RP_VBO mVBO;
   RP_EBO mEBO;
   RP_UBO mUBO;
-  RP_Texture mTexture;
-  const GLuint muLightDepthTexture{0};
-  const GLuint muDiffuseTexture{1};
-  const GLuint muMaterialBlockBinding{0};
   GLuint mNumElements{0};
 };
 

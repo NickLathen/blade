@@ -23,20 +23,13 @@ void renderGUI(const GameTimer &gameTimer, Camera &camera, Light &light,
   ImGui::Text("cpu=%luus", gameTimer.cpu_us);
   ImGui::Text("gui=%luus", gameTimer.gui_us);
   ImGui::Text("gpu=%luus", gameTimer.gpu_us);
-  ImGui::DragFloat4("camera.transform[0]", &camera.transform[0][0], .01f, -5.0f,
-                    5.0f);
-  ImGui::DragFloat4("camera.transform[1]", &camera.transform[1][0], .01f, -5.0f,
-                    5.0f);
-  ImGui::DragFloat4("camera.transform[2]", &camera.transform[2][0], .01f, -5.0f,
-                    5.0f);
   ImGui::DragFloat4("camera.transform[3]", &camera.transform[3][0], .01f, -5.0f,
                     5.0f);
-  ImGui::DragFloat4("uModelMatrix[0]", &uModelMatrix[0][0], .01f, -5.0f, 5.0f);
-  ImGui::DragFloat4("uModelMatrix[1]", &uModelMatrix[1][0], .01f, -5.0f, 5.0f);
-  ImGui::DragFloat4("uModelMatrix[2]", &uModelMatrix[2][0], .01f, -5.0f, 5.0f);
   ImGui::DragFloat4("uModelMatrix[3]", &uModelMatrix[3][0], .01f, -5.0f, 5.0f);
   ImGui::DragFloat3("camera.target", &camera.target[0], .01f, -10.0, 10.0f);
-  ImGui::DragFloat3("light.uLightPos", &light.uLightPos[0], .01f, -10.0f,
+  // ImGui::DragFloat3("light.uLightPos", &light.uLightPos[0], .01f, -10.0f,
+  // 10.0f);
+  ImGui::DragFloat3("light.uLightDir", &light.uLightDir[0], .01f, -10.0f,
                     10.0f);
   ImGui::DragFloat("camera.fov", &camera.fov, 1.0f, 0.0f, 120.0f);
   ImGui::DragFloat("camera.near", &camera.near, 0.001f, 0.001f, 1.0f);
@@ -51,12 +44,13 @@ Game::Game(Platform *platform) : mPlatform{platform} {
   mRPMaterial.emplace_back(mMeshGroups[0].getMaterials(),
                            mMeshGroups[0].getVertexBuffer(),
                            mMeshGroups[0].getElementBuffer());
-  mRPDepthMap.emplace_back(1024);
+  mRPDepthMap.emplace_back(2048);
   mRPTex.emplace_back();
   mRPIcon.emplace_back();
   mRPTerrain.emplace_back();
-  mLight = {.uAmbientLightColor = {.2f, .2f, .2f},
-            .uLightDir = {-1.0f, 1.0f, 0.5f},
+  mShaderMaterial.emplace_back();
+  mLight = {.uAmbientLightColor = {1.0f, 1.0f, 1.0f},
+            .uLightDir = {glm::normalize(glm::vec3(-0.2f, 1.0f, 0.2f))},
             .uLightPos = {-1.0f, 1.0f, 0.5f},
             .uLightColor = {1.0f, 1.0f, 1.0f}};
 
@@ -184,7 +178,8 @@ void Game::render() {
   glm::mat4 uTerrainVP = vp * muTerrainMatrix;
 
   glm::mat4 lightTransform =
-      glm::lookAt(mLight.uLightPos, mCamera.target, glm::vec3(0.0, 1.0, 0.0));
+      glm::lookAt(uCameraPos + glm::normalize(mLight.uLightDir) * 5.0f,
+                  uCameraPos, glm::vec3(0.0, 1.0, 0.0));
   glm::mat4 lightProjection = mRPDepthMap[0].getProjection();
   glm::mat4 lightVP = lightProjection * lightTransform;
   glm::mat4 uModelLightVP = lightVP * muModelMatrix;
@@ -199,10 +194,21 @@ void Game::render() {
   mRPDepthMap[0].end();
 
   // draw pass
-  mRPMaterial[0].draw(uCameraPos, mLight, uModelVP, uModelLightVP,
-                      muModelMatrix, mRPDepthMap[0].getFBO());
-  mRPTerrain[0].draw(uCameraPos, mLight, uTerrainVP, uTerrainLightVP,
-                     muTerrainMatrix, mRPDepthMap[0].getFBO());
+  mShaderMaterial[0].begin();
+
+  mShaderMaterial[0].bindDepthTexture(mRPDepthMap[0].getFBO());
+
+  mShaderMaterial[0].setUniforms(uCameraPos, mLight, uModelVP, uModelLightVP,
+                                 muModelMatrix);
+  mShaderMaterial[0].bindMaterialsBuffer(mRPMaterial[0].getMaterialsBuffer());
+  mRPMaterial[0].drawVertices();
+
+  mShaderMaterial[0].setUniforms(uCameraPos, mLight, uTerrainVP,
+                                 uTerrainLightVP, muTerrainMatrix);
+  mShaderMaterial[0].bindMaterialsBuffer(mRPTerrain[0].getMaterialsBuffer());
+  mRPTerrain[0].drawVertices();
+
+  mShaderMaterial[0].end();
 
   // draw shadow map to screen
   // mRPTex[0].draw(mRPDepthMap[0].getFBO());

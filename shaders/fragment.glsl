@@ -3,11 +3,12 @@ precision highp float;
 
 in vec3 normalDir;
 in vec3 worldPos;
+in vec2 texCoords;
 in vec4 lightSpacePosition;
 flat in uint materialIdx;
 out vec4 FragColor;
 
-uniform sampler2D uLightDepthTexture;
+uniform sampler2DShadow uDepthTexture;
 
 uniform vec3 uAmbientLightColor;
 uniform vec3 uLightDir;
@@ -29,23 +30,20 @@ layout(std140) uniform uMaterialBlock {
   Material materials[NUM_MATERIALS];
 } uMaterial;
 
-float CalcShadowFactor(vec4 position) {
+float CalcShadowFactor(vec4 position, float diffuseFactor) {
   vec3 ProjCoords = position.xyz / position.w;
-  vec2 UVCoords;
+  vec3 UVCoords;
   UVCoords.x = 0.5 * ProjCoords.x + 0.5;
   UVCoords.y = 0.5 * ProjCoords.y + 0.5;
-  float z = 0.5 * ProjCoords.z + 0.5;
-  if (z < 0.0) {
-    return 0.5;
+  UVCoords.z = 0.5 * ProjCoords.z + 0.5;
+  if (UVCoords.z < 0.0 || UVCoords.x < 0.0 || UVCoords.x > 1.0 || UVCoords.y < 0.0 || UVCoords.y > 1.0) {
+    return 1.0;
   }
-  float Depth = texture(uLightDepthTexture, UVCoords).x;
-  float bias = .00025;
-  if (Depth + bias < z) {
-    return 0.5;
-  }
-  return 1.0;
+  float bias = mix(0.0001, 0.001, clamp(abs(diffuseFactor), 0.0, 1.0));
+  UVCoords.z -= bias;
+  float Depth = texture(uDepthTexture, UVCoords);
+  return 0.5 + (Depth * 0.5f);
 }
-
 
 void main() {
   Material material = uMaterial.materials[materialIdx];
@@ -55,11 +53,12 @@ void main() {
   vec3 specLightDir = normalize(lightRelativePosition);
 
   //diffuse lighting
-  vec3 diffuseColor = max(dot(nNormalDir, specLightDir), 0.0) *
+  float diffuseFactor = dot(nNormalDir, lightDir);
+  vec3 diffuseColor = max(diffuseFactor, 0.0) *
                       uLightColor;
 
   //specular lighting
-  vec3 reflectDir = normalize(reflect(-specLightDir, nNormalDir));
+  vec3 reflectDir = normalize(reflect(-lightDir, nNormalDir));
   vec3 viewDir = normalize(worldPos - uCameraPos);
   float shininess = material.shininess / uShininessScale;
   float specularFactor = max(dot(reflectDir, -viewDir), 0.0);
@@ -70,6 +69,6 @@ void main() {
     
   vec3 ambientColor = uAmbientLightColor * material.ambientColor * material.diffuseColor;
   vec3 finalColor = ambientColor +
-                    CalcShadowFactor(lightSpacePosition) * litColor;
+                    CalcShadowFactor(lightSpacePosition, diffuseFactor) * litColor;
   FragColor = vec4(clamp(finalColor, 0.0, 1.0), 1.0f);
 };

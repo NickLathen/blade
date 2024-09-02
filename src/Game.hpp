@@ -37,5 +37,6 @@ private:
   std::vector<RP_Tex> mRPTex{};
   std::vector<RP_Icon> mRPIcon{};
   std::vector<RP_Terrain> mRPTerrain{};
+  std::vector<Shader_Material> mShaderMaterial{};
   GameTimer mGameTimer{};
 };
