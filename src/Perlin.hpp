@@ -9,20 +9,20 @@
 // Fade function as defined by Ken Perlin. This eases coordinate values
 // so that they will ease towards integral values. This smooths the final
 // output.
-float fade(float t) { return t * t * t * (t * (t * 6 - 15) + 10); }
+float Fade(float t) { return t * t * t * (t * (t * 6 - 15) + 10); }
 
 // Linear interpolation function
-float lerp(float t, float a, float b) { return a + t * (b - a); }
+float Lerp(float t, float a, float b) { return a + t * (b - a); }
 
 // Hash function to generate gradient vectors based on input coordinates
-int hash(int x, int y, int seed) {
+int Hash(int x, int y, int seed) {
   int h = seed + x * 374761393 + y * 668265263; // Prime numbers
   h = (h ^ (h >> 13)) * 1274126177;
   return h ^ (h >> 16);
 }
 
 // Function to generate gradient vectors
-float grad(int hash, float x, float y) {
+float Gradient(int hash, float x, float y) {
   int h =
       hash & 3; // Convert low 2 bits of hash code into 4 gradient directions
   float u = h < 2 ? x : y;
@@ -31,7 +31,7 @@ float grad(int hash, float x, float y) {
 }
 
 // Perlin noise function
-float perlinNoise(float x, float y, int seed) {
+float PerlinNoise(float x, float y, int seed) {
   int X = (int)floor(x) & 255;
   int Y = (int)floor(y) & 255;
 
@@ -39,25 +39,25 @@ float perlinNoise(float x, float y, int seed) {
   float yf = y - floor(y);
 
   // Compute hash coordinates of the square corners
-  int topRight = hash(X + 1, Y + 1, seed);
-  int topLeft = hash(X, Y + 1, seed);
-  int bottomRight = hash(X + 1, Y, seed);
-  int bottomLeft = hash(X, Y, seed);
+  int top_right = Hash(X + 1, Y + 1, seed);
+  int top_left = Hash(X, Y + 1, seed);
+  int bottom_right = Hash(X + 1, Y, seed);
+  int bottom_left = Hash(X, Y, seed);
 
   // And add blended results from 4 corners of the square
-  float u = fade(xf);
-  float v = fade(yf);
+  float u = Fade(xf);
+  float v = Fade(yf);
 
   float n0, n1, n2, n3;
-  n0 = grad(bottomLeft, xf, yf);
-  n1 = grad(bottomRight, xf - 1, yf);
-  n2 = grad(topLeft, xf, yf - 1);
-  n3 = grad(topRight, xf - 1, yf - 1);
+  n0 = Gradient(bottom_left, xf, yf);
+  n1 = Gradient(bottom_right, xf - 1, yf);
+  n2 = Gradient(top_left, xf, yf - 1);
+  n3 = Gradient(top_right, xf - 1, yf - 1);
 
   // Blend the results
-  float x1 = lerp(u, n0, n1);
-  float x2 = lerp(u, n2, n3);
-  float result = lerp(v, x1, x2);
+  float x1 = Lerp(u, n0, n1);
+  float x2 = Lerp(u, n2, n3);
+  float result = Lerp(v, x1, x2);
 
   // Return result normalized to the range [0, 1]
   return (result + 1.0f) / 2.0f;

@@ -10,28 +10,28 @@
 #include "utils.hpp"
 
 struct MeshMap {
-  GLuint materialId;
-  GLuint vertexOffset;
-  GLuint elementOffset;
+  GLuint material_idx;
+  GLuint vertex_offset;
+  GLuint element_offset;
 };
 
 class MeshGroup {
 public:
   MeshGroup(const aiScene *scene);
-  GLuint getNumElements() const;
-  GLuint getNumVertices() const;
-  const std::vector<Material> &getMaterials() const;
-  const std::vector<MeshVertexBuffer> &getVertexBuffer() const;
-  const std::vector<GLuint> &getElementBuffer() const;
+  GLuint GetNumElements() const;
+  GLuint GetNumVertices() const;
+  const std::vector<Material> &GetMaterials() const;
+  const std::vector<MeshVertexBuffer> &GetVertexBuffer() const;
+  const std::vector<GLuint> &GetElementBuffer() const;
 
 private:
-  uint _addMaterial(const aiMaterial *material);
-  uint _addMesh(const aiMesh *mesh, GLuint vertexOffset, GLuint elementOffset);
-  std::vector<Mesh> mMeshes{};
-  std::vector<MeshMap> mMeshMap{};
-  std::vector<Material> mMaterials{};
-  std::vector<GLuint> mElementBuffer{};
-  std::vector<MeshVertexBuffer> mVertexBuffer{};
+  uint AddMaterial(const aiMaterial *material);
+  uint AddMesh(const aiMesh *mesh, GLuint vertex_offset, GLuint element_offset);
+  std::vector<Mesh> m_meshes{};
+  std::vector<MeshMap> m_mesh_map{};
+  std::vector<Material> m_materials{};
+  std::vector<GLuint> m_element_buffer{};
+  std::vector<MeshVertexBuffer> m_vertex_buffer{};
 };
 
-MeshGroup import(const std::string &pFile);
+MeshGroup Import(const std::string &p_file);

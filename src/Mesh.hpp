@@ -5,21 +5,22 @@
 #include <vector>
 
 struct MeshVertexBuffer {
-  glm::vec3 aPos;
-  glm::vec3 aNormal;
-  glm::u32 aMaterialIdx;
+  glm::vec3 position;
+  glm::vec3 normal;
+  glm::u32 material_idx;
 };
 
 class Mesh {
 public:
   Mesh(const aiMesh *mesh);
-  GLsizei getNumElements() const;
-  GLsizei getNumVertices() const;
-  const std::vector<GLuint> getElementBuffer(uint vertexOffset) const;
-  const std::vector<MeshVertexBuffer> getVertexBuffer(GLuint materialIdx) const;
+  GLsizei GetNumElements() const;
+  GLsizei GetNumVertices() const;
+  const std::vector<GLuint> GetElementBuffer(uint vertex_offset) const;
+  const std::vector<MeshVertexBuffer>
+  GetVertexBuffer(GLuint material_idx) const;
 
 private:
-  std::vector<GLfloat> mVertices{};
-  std::vector<GLfloat> mNormals{};
-  std::vector<GLuint> mFaces{};
+  std::vector<GLfloat> m_vertices{};
+  std::vector<GLfloat> m_normals{};
+  std::vector<GLuint> m_faces{};
 };

@@ -14,19 +14,19 @@ class Platform {
 public:
   Platform(int width, int height);
   ~Platform();
-  static void queue_quit();
-  glm::vec2 getDrawableSize();
+  static void QueueQuit();
+  glm::vec2 GetDrawableSize();
 
-  void loop(Game &game);
+  void Loop(Game &game);
 
 private:
-  SDL_Window *mWindow = nullptr;
-  SDL_GLContext mContext = nullptr;
+  SDL_Window *m_window = nullptr;
+  SDL_GLContext m_context = nullptr;
 
-  void shutdown();
-  void beginImguiFrame();
-  void endImguiFrame();
-  void initGL(int width, int height);
-  void initGLFunctions();
-  void initImgui();
+  void Shutdown();
+  void BeginImguiFrame();
+  void EndImguiFrame();
+  void InitGL(int width, int height);
+  void InitGLFunctions();
+  void InitImgui();
 };

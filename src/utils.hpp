@@ -8,20 +8,20 @@
   T(const T &) = delete;                                                       \
   T &operator=(const T &) = delete;
 
-std::string loadFileIntoString(const std::string &filePath);
-void printMaterial(const aiMaterial *material);
-void printVertices(const aiMesh *mesh);
-void printNormals(const aiMesh *mesh);
-void printTexCoords(const aiMesh *mesh);
-void printFaces(const aiMesh *mesh);
-void printNode(aiNode *node, const aiScene *scene);
-void printMatrix(const glm::mat4 &m);
-glm::vec3 getCameraPos(const glm::mat4 &viewMatrix);
-void zoomCamera(glm::mat4 &viewMatrix, glm::vec3 &target, float zoomAmount);
-void orbitYaw(glm::mat4 &viewMatrix, glm::vec3 &target, float amount);
-void orbitPitch(glm::mat4 &viewMatrix, glm::vec3 &target, float amount);
-void rotateYaw(glm::mat4 &viewMatrix, float amount);
-void rotatePitch(glm::mat4 &viewMatrix, float amount);
-void slideView(glm::mat4 &viewMatrix, glm::vec3 &target, float xAmount,
-               float yAmount);
-void moveAlongCameraAxes(glm::mat4 &viewMatrix, glm::vec3 translation);
+std::string LoadFileIntoString(const std::string &file_path);
+void PrintMaterial(const aiMaterial *material);
+void PrintVertices(const aiMesh *mesh);
+void PrintNormals(const aiMesh *mesh);
+void PrintTexCoords(const aiMesh *mesh);
+void PrintFaces(const aiMesh *mesh);
+void PrintNode(aiNode *node, const aiScene *scene);
+void PrintMatrix(const glm::mat4 &m);
+glm::vec3 GetCameraPos(const glm::mat4 &view_matrix);
+void ZoomCamera(glm::mat4 &view_matrix, glm::vec3 &target, float amount);
+void OrbitYaw(glm::mat4 &view_matrix, glm::vec3 &target, float amount);
+void OrbitPitch(glm::mat4 &view_matrix, glm::vec3 &target, float amount);
+void RotateYaw(glm::mat4 &view_matrix, float amount);
+void RotatePitch(glm::mat4 &view_matrix, float amount);
+void SlideViewWithTarget(glm::mat4 &view_matrix, glm::vec3 &target,
+                         float amount_right, float amount_up);
+void MoveAlongCameraAxes(glm::mat4 &view_matrix, const glm::vec3 &translation);

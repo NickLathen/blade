@@ -14,11 +14,11 @@ BUILD_FILES=src/main.cpp \
             src/MeshGroup.cpp \
             src/Material.cpp \
             src/Mesh.cpp \
-            src/RP_DepthMap.cpp \
-            src/RP_Icon.cpp \
-            src/RP_Tex.cpp \
-            src/RP_Material.cpp \
-            src/RP_Terrain.cpp
+            src/RPDepthMap.cpp \
+            src/RPIcon.cpp \
+            src/RPTex.cpp \
+            src/RPMaterial.cpp \
+            src/RPTerrain.cpp
 
 GAME_FILES=src/Game/Game.cpp
 

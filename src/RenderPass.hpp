@@ -10,323 +10,326 @@
 struct Camera {
   glm::mat4 transform{1.0f};
   glm::vec3 target{};
-  float aspectRatio{};
+  float aspect_ratio{};
   float fov{};
   float near{};
   float far{};
 };
 
 struct Light {
-  glm::vec3 uAmbientLightColor;
-  glm::vec3 uLightDir;
-  glm::vec3 uLightPos;
-  glm::vec3 uLightColor;
+  glm::vec3 ambient_color;
+  glm::vec3 direction;
+  glm::vec3 position;
+  glm::vec3 diffuse_color;
 };
 
-class RP_VBO {
+class VBO {
 public:
-  RP_VBO() { glGenBuffers(1, &mVBO); }
-  ~RP_VBO() {
-    if (mVBO != 0) {
-      glDeleteBuffers(1, &mVBO);
+  VBO() { glGenBuffers(1, &m_vbo); }
+  ~VBO() {
+    if (m_vbo != 0) {
+      glDeleteBuffers(1, &m_vbo);
     };
   }
-  NEVER_COPY(RP_VBO);
-  RP_VBO(RP_VBO &&other) : mVBO{other.mVBO} { other.mVBO = 0; };
-  void bufferData(GLsizeiptr size, const void *data, GLenum usage) const {
-    bindBuffer();
+  NEVER_COPY(VBO);
+  VBO(VBO &&other) : m_vbo{other.m_vbo} { other.m_vbo = 0; };
+  void BufferData(GLsizeiptr size, const void *data, GLenum usage) const {
+    BindBuffer();
     glBufferData(GL_ARRAY_BUFFER, size, data, usage);
-    unbind();
+    Unbind();
   };
-  void bindBuffer() const { glBindBuffer(GL_ARRAY_BUFFER, mVBO); }
-  void unbind() const { glBindBuffer(GL_ARRAY_BUFFER, 0); }
+  void BindBuffer() const { glBindBuffer(GL_ARRAY_BUFFER, m_vbo); }
+  void Unbind() const { glBindBuffer(GL_ARRAY_BUFFER, 0); }
 
 private:
-  GLuint mVBO;
+  GLuint m_vbo;
 };
 
-class RP_VAO {
+class VAO {
 public:
-  RP_VAO() { glGenVertexArrays(1, &mVAO); };
-  ~RP_VAO() {
-    if (mVAO != 0) {
-      glDeleteVertexArrays(1, &mVAO);
+  VAO() { glGenVertexArrays(1, &m_vao); };
+  ~VAO() {
+    if (m_vao != 0) {
+      glDeleteVertexArrays(1, &m_vao);
     };
   }
-  NEVER_COPY(RP_VAO);
-  RP_VAO(RP_VAO &&other) : mVAO{other.mVAO} { other.mVAO = 0; };
+  NEVER_COPY(VAO);
+  VAO(VAO &&other) : m_vao{other.m_vao} { other.m_vao = 0; };
 
-  void bindVertexArray() const { glBindVertexArray(mVAO); };
-  void vertexAttribPointer(const RP_VBO &VBO, GLuint index, GLint size,
+  void BindVertexArray() const { glBindVertexArray(m_vao); };
+  void VertexAttribPointer(const VBO &vbo, GLuint index, GLint size,
                            GLenum type, GLboolean normalized, GLsizei stride,
                            const void *offset) const {
     glEnableVertexAttribArray(index);
-    VBO.bindBuffer();
+    vbo.BindBuffer();
     glVertexAttribPointer(index, size, type, normalized, stride, offset);
-    VBO.unbind();
+    vbo.Unbind();
   };
-  void vertexAttribIPointer(const RP_VBO &VBO, GLuint index, GLint size,
+  void VertexAttribIPointer(const VBO &vbo, GLuint index, GLint size,
                             GLenum type, GLsizei stride,
                             const void *offset) const {
     glEnableVertexAttribArray(index);
-    VBO.bindBuffer();
+    vbo.BindBuffer();
     glVertexAttribIPointer(index, size, type, stride, offset);
-    VBO.unbind();
+    vbo.Unbind();
   };
-  void unbind() const { glBindVertexArray(0); };
+  void Unbind() const { glBindVertexArray(0); };
 
 private:
-  GLuint mVAO;
+  GLuint m_vao;
 };
 
-class RP_EBO {
+class EBO {
 public:
-  RP_EBO() { glGenBuffers(1, &mEBO); }
-  ~RP_EBO() {
-    if (mEBO != 0) {
-      glDeleteBuffers(1, &mEBO);
+  EBO() { glGenBuffers(1, &m_ebo); }
+  ~EBO() {
+    if (m_ebo != 0) {
+      glDeleteBuffers(1, &m_ebo);
     }
   }
-  NEVER_COPY(RP_EBO);
-  RP_EBO(RP_EBO &&other) : mEBO{other.mEBO} { other.mEBO = 0; };
+  NEVER_COPY(EBO);
+  EBO(EBO &&other) : m_ebo{other.m_ebo} { other.m_ebo = 0; };
 
-  void bufferData(GLsizeiptr size, const void *data, GLenum usage) const {
-    bindBuffer();
+  void BufferData(GLsizeiptr size, const void *data, GLenum usage) const {
+    BindBuffer();
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, size, data, usage);
-    unbind();
+    Unbind();
   };
-  void bindBuffer() const { glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mEBO); }
-  void unbind() const { glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0); }
+  void BindBuffer() const { glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_ebo); }
+  void Unbind() const { glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0); }
 
 private:
-  GLuint mEBO;
+  GLuint m_ebo;
 };
 
-class RP_UBO {
+class UBO {
 public:
-  RP_UBO() { glGenBuffers(1, &mUBO); };
-  ~RP_UBO() {
-    if (mUBO != 0) {
-      glDeleteBuffers(1, &mUBO);
+  UBO() { glGenBuffers(1, &m_ubo); };
+  ~UBO() {
+    if (m_ubo != 0) {
+      glDeleteBuffers(1, &m_ubo);
     };
   }
-  NEVER_COPY(RP_UBO);
-  RP_UBO(RP_UBO &&other) : mUBO{other.mUBO} { other.mUBO = 0; };
+  NEVER_COPY(UBO);
+  UBO(UBO &&other) : m_ubo{other.m_ubo} { other.m_ubo = 0; };
 
-  void bindBufferBase(GLuint blockBindingIndex) const {
-    glBindBufferBase(GL_UNIFORM_BUFFER, blockBindingIndex, mUBO);
+  void BindBufferBase(GLuint block_binding_index) const {
+    glBindBufferBase(GL_UNIFORM_BUFFER, block_binding_index, m_ubo);
   };
-  void bindBuffer() const { glBindBuffer(GL_UNIFORM_BUFFER, mUBO); }
-  void unbind() const { glBindBuffer(GL_UNIFORM_BUFFER, 0); }
-  void bufferData(GLsizeiptr size, const void *data, GLenum usage) const {
-    bindBuffer();
+  void BindBuffer() const { glBindBuffer(GL_UNIFORM_BUFFER, m_ubo); }
+  void Unbind() const { glBindBuffer(GL_UNIFORM_BUFFER, 0); }
+  void BufferData(GLsizeiptr size, const void *data, GLenum usage) const {
+    BindBuffer();
     glBufferData(GL_UNIFORM_BUFFER, size, data, usage);
-    unbind();
+    Unbind();
   };
 
 private:
-  GLuint mUBO;
+  GLuint m_ubo;
 };
 
-class RP_FBO {
+class FBO {
 public:
-  RP_FBO() { glGenFramebuffers(1, &mFBO); }
-  ~RP_FBO() {
-    if (mFBO != 0) {
-      glDeleteFramebuffers(1, &mFBO);
+  FBO() { glGenFramebuffers(1, &m_fbo); }
+  ~FBO() {
+    if (m_fbo != 0) {
+      glDeleteFramebuffers(1, &m_fbo);
     }
   }
-  NEVER_COPY(RP_FBO);
-  RP_FBO(RP_FBO &&other) : mFBO{other.mFBO} { other.mFBO = 0; };
+  NEVER_COPY(FBO);
+  FBO(FBO &&other) : m_fbo{other.m_fbo} { other.m_fbo = 0; };
 
-  void bindTexture(GLenum target) const { glBindTexture(target, mFBO); }
-  void bindFramebuffer(GLenum target) const { glBindFramebuffer(target, mFBO); }
-  void unbindFramebuffer(GLenum target) const { glBindFramebuffer(target, 0); }
-  GLenum checkFramebufferStatus(GLenum target) const {
+  void BindTexture(GLenum target) const { glBindTexture(target, m_fbo); }
+  void BindFramebuffer(GLenum target) const {
+    glBindFramebuffer(target, m_fbo);
+  }
+  void UnbindFramebuffer(GLenum target) const { glBindFramebuffer(target, 0); }
+  GLenum CheckFramebufferStatus(GLenum target) const {
     return glCheckFramebufferStatus(target);
   }
 
 private:
-  GLuint mFBO;
+  GLuint m_fbo;
 };
 
-class RP_Texture {
+class RPTexture {
 public:
-  RP_Texture() { glGenTextures(1, &mTexture); }
-  ~RP_Texture() {
-    if (mTexture != 0) {
-      glDeleteTextures(1, &mTexture);
+  RPTexture() { glGenTextures(1, &m_texture); }
+  ~RPTexture() {
+    if (m_texture != 0) {
+      glDeleteTextures(1, &m_texture);
     }
   }
-  NEVER_COPY(RP_Texture);
-  RP_Texture(RP_Texture &&other) : mTexture{other.mTexture} {
-    other.mTexture = 0;
+  NEVER_COPY(RPTexture);
+  RPTexture(RPTexture &&other) : m_texture{other.m_texture} {
+    other.m_texture = 0;
   };
 
-  void bindTexture(GLenum target) const { glBindTexture(target, mTexture); }
-  void framebufferTexture2D(GLenum target, GLenum attachment, GLenum textarget,
+  void BindTexture(GLenum target) const { glBindTexture(target, m_texture); }
+  void FramebufferTexture2D(GLenum target, GLenum attachment, GLenum textarget,
                             GLint level) const {
-    glFramebufferTexture2D(target, attachment, textarget, mTexture, level);
+    glFramebufferTexture2D(target, attachment, textarget, m_texture, level);
   }
 
 private:
-  GLuint mTexture;
+  GLuint m_texture;
 };
 
-class Shader_Material {
+class RPMaterialShader {
 public:
-  Shader_Material() : mShader{"shaders/vertex.glsl", "shaders/fragment.glsl"} {
-    mShader.useProgram();
-    mShader.uniformBlockBlinding("uMaterialBlock", muMaterialBlockBinding);
-    mShader.uniform1i("uDepthTexture", muDepthTexture);
+  RPMaterialShader()
+      : m_shader{"shaders/vertex.glsl", "shaders/fragment.glsl"} {
+    m_shader.UseProgram();
+    m_shader.UniformBlockBinding("uMaterialBlock", m_material_block_binding);
+    m_shader.Uniform1i("uDepthTexture", m_depth_texture);
     glUseProgram(0);
   };
-  NEVER_COPY(Shader_Material);
-  Shader_Material(Shader_Material &&other)
-      : mShader{std::move(other.mShader)}, muDepthTexture{other.muDepthTexture},
-        muMaterialBlockBinding{other.muMaterialBlockBinding} {};
-  void begin() {
-    glGetBooleanv(GL_DEPTH_TEST, &gDepthTest);
-    glGetBooleanv(GL_CULL_FACE, &gCullFace);
-    glGetIntegerv(GL_CULL_FACE_MODE, &gCullFaceMode);
-    glGetIntegerv(GL_FRONT_FACE, &gFrontFace);
+  NEVER_COPY(RPMaterialShader);
+  RPMaterialShader(RPMaterialShader &&other)
+      : m_shader{std::move(other.m_shader)},
+        m_depth_texture{other.m_depth_texture},
+        m_material_block_binding{other.m_material_block_binding} {};
+  void Begin() {
+    glGetBooleanv(GL_DEPTH_TEST, &g_depth_test);
+    glGetBooleanv(GL_CULL_FACE, &g_cull_face);
+    glGetIntegerv(GL_CULL_FACE_MODE, &g_cull_face_mode);
+    glGetIntegerv(GL_FRONT_FACE, &g_front_face);
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
     glFrontFace(GL_CCW);
   }
-  void setUniforms(const glm::vec3 &uCameraPos, const Light &light,
-                   const glm::mat4 &uMVP, const glm::mat4 &uLightMVP,
-                   const glm::mat4 &uModelMatrix) const {
-    mShader.useProgram();
-    mShader.uniform3fv("uCameraPos", uCameraPos);
-    mShader.uniform3fv("uAmbientLightColor", light.uAmbientLightColor);
-    mShader.uniform3fv("uLightDir", light.uLightDir);
-    mShader.uniform3fv("uLightColor", light.uLightColor);
-    mShader.uniform3fv("uLightPos", light.uLightPos);
-    mShader.uniformMatrix4fv("uMVP", GL_FALSE, uMVP);
-    mShader.uniformMatrix4fv("uLightMVP", GL_FALSE, uLightMVP);
-    mShader.uniformMatrix4fv("uModelMatrix", GL_FALSE, uModelMatrix);
-    mShader.uniform1f("uSpecularPower", 32.0f);
-    mShader.uniform1f("uShininessScale", 2000.0f);
+  void SetUniforms(const glm::vec3 &camera_pos, const Light &light,
+                   const glm::mat4 &mvp, const glm::mat4 &light_mvp,
+                   const glm::mat4 &model_matrix) const {
+    m_shader.UseProgram();
+    m_shader.Uniform3fv("uCameraPos", camera_pos);
+    m_shader.Uniform3fv("uAmbientLightColor", light.ambient_color);
+    m_shader.Uniform3fv("uLightDir", light.direction);
+    m_shader.Uniform3fv("uLightColor", light.diffuse_color);
+    m_shader.Uniform3fv("uLightPos", light.position);
+    m_shader.UniformMatrix4fv("uMVP", GL_FALSE, mvp);
+    m_shader.UniformMatrix4fv("uLightMVP", GL_FALSE, light_mvp);
+    m_shader.UniformMatrix4fv("uModelMatrix", GL_FALSE, model_matrix);
+    m_shader.Uniform1f("uSpecularPower", 32.0f);
+    m_shader.Uniform1f("uShininessScale", 2000.0f);
   }
-  void bindMaterialsBuffer(const RP_UBO &UBO) const {
-    UBO.bindBufferBase(muMaterialBlockBinding);
+  void BindMaterialsBuffer(const UBO &ubo) const {
+    ubo.BindBufferBase(m_material_block_binding);
   }
-  void bindDepthTexture(const RP_FBO &FBO) const {
-    glActiveTexture(GL_TEXTURE0 + muDepthTexture);
-    FBO.bindTexture(GL_TEXTURE_2D);
+  void BindDepthTexture(const FBO &fbo) const {
+    glActiveTexture(GL_TEXTURE0 + m_depth_texture);
+    fbo.BindTexture(GL_TEXTURE_2D);
   }
-  void end() {
-    if (gDepthTest == GL_FALSE)
+  void End() {
+    if (g_depth_test == GL_FALSE)
       glDisable(GL_DEPTH_TEST);
-    if (gCullFace == GL_FALSE)
+    if (g_cull_face == GL_FALSE)
       glDisable(GL_CULL_FACE);
-    glCullFace(gCullFaceMode);
-    glFrontFace(gFrontFace);
+    glCullFace(g_cull_face_mode);
+    glFrontFace(g_front_face);
   }
 
 private:
-  Shader mShader;
-  const GLuint muDepthTexture{0};
-  const GLuint muMaterialBlockBinding{0};
-  GLboolean gDepthTest, gCullFace;
-  GLint gCullFaceMode, gFrontFace;
+  Shader m_shader;
+  const GLuint m_depth_texture{0};
+  const GLuint m_material_block_binding{0};
+  GLboolean g_depth_test, g_cull_face;
+  GLint g_cull_face_mode, g_front_face;
 };
 
-class RP_Material {
+class RPMaterial {
 public:
-  RP_Material(const std::vector<Material> &materials,
-              const std::vector<MeshVertexBuffer> &vertexBufferData,
-              const std::vector<GLuint> &elementBufferData);
-  NEVER_COPY(RP_Material);
-  RP_Material(RP_Material &&other)
-      : mVAO{std::move(other.mVAO)}, mUBO{std::move(other.mUBO)},
-        mVBO{std::move(other.mVBO)}, mEBO{std::move(other.mEBO)},
-        mNumElements{other.mNumElements} {};
+  RPMaterial(const std::vector<Material> &materials,
+             const std::vector<MeshVertexBuffer> &vertex_buffer_data,
+             const std::vector<GLuint> &element_buffer_data);
+  NEVER_COPY(RPMaterial);
+  RPMaterial(RPMaterial &&other)
+      : m_vao{std::move(other.m_vao)}, m_ubo{std::move(other.m_ubo)},
+        m_vbo{std::move(other.m_vbo)}, m_ebo{std::move(other.m_ebo)},
+        m_num_elements{other.m_num_elements} {};
 
-  void drawVertices() const;
-  const RP_UBO &getMaterialsBuffer() const { return mUBO; };
+  void DrawVertices() const;
+  const UBO &GetMaterialsBuffer() const { return m_ubo; };
 
 private:
-  RP_VAO mVAO;
-  RP_UBO mUBO;
-  RP_VBO mVBO;
-  RP_EBO mEBO;
-  GLuint mNumElements{0};
+  VAO m_vao;
+  UBO m_ubo;
+  VBO m_vbo;
+  EBO m_ebo;
+  GLuint m_num_elements{0};
 };
 
-class RP_DepthMap {
+class RPDepthMap {
 public:
-  RP_DepthMap(GLuint textureSize);
-  NEVER_COPY(RP_DepthMap);
-  RP_DepthMap(RP_DepthMap &&other)
-      : mDepthShader{std::move(other.mDepthShader)},
-        mFBO{std::move(other.mFBO)}, mTexture{std::move(other.mTexture)},
-        mTextureSize{other.mTextureSize}, gVP{other.gVP},
-        gDepthTest{other.gDepthTest}, gCullFace{other.gCullFace} {};
-  glm::mat4 getProjection() const;
-  void begin();
-  void setMVP(const glm::mat4 &uMVP);
-  void end();
-  const RP_FBO &getFBO() const;
+  RPDepthMap(GLuint texture_size);
+  NEVER_COPY(RPDepthMap);
+  RPDepthMap(RPDepthMap &&other)
+      : m_shader{std::move(other.m_shader)}, m_fbo{std::move(other.m_fbo)},
+        m_texture{std::move(other.m_texture)},
+        m_texture_size{other.m_texture_size}, g_vp{other.g_vp},
+        g_depth_test{other.g_depth_test}, g_cull_face{other.g_cull_face} {};
+  glm::mat4 GetProjection() const;
+  void Begin();
+  void SetMVP(const glm::mat4 &mvp);
+  void End();
+  const FBO &GetFBO() const;
 
 private:
-  Shader mDepthShader;
-  RP_FBO mFBO;
-  RP_Texture mTexture;
-  GLuint mTextureSize{0};
-  glm::ivec4 gVP{};
-  GLboolean gDepthTest;
-  GLboolean gCullFace;
+  Shader m_shader;
+  FBO m_fbo;
+  RPTexture m_texture;
+  GLuint m_texture_size{0};
+  glm::ivec4 g_vp{};
+  GLboolean g_depth_test;
+  GLboolean g_cull_face;
 };
 
-class RP_Terrain {
+class RPTerrain {
 public:
-  RP_Terrain();
-  NEVER_COPY(RP_Terrain);
-  RP_Terrain(RP_Terrain &&other)
-      : mVAO{std::move(other.mVAO)}, mVBO{std::move(other.mVBO)},
-        mEBO{std::move(other.mEBO)}, mUBO{std::move(other.mUBO)},
-        mNumElements{other.mNumElements} {};
-  void drawVertices() const;
-  const RP_UBO &getMaterialsBuffer() const { return mUBO; };
+  RPTerrain();
+  NEVER_COPY(RPTerrain);
+  RPTerrain(RPTerrain &&other)
+      : m_vao{std::move(other.m_vao)}, m_vbo{std::move(other.m_vbo)},
+        m_ebo{std::move(other.m_ebo)}, m_ubo{std::move(other.m_ubo)},
+        m_num_elements{other.m_num_elements} {};
+  void DrawVertices() const;
+  const UBO &GetMaterialsBuffer() const { return m_ubo; };
 
 private:
-  RP_VAO mVAO;
-  RP_VBO mVBO;
-  RP_EBO mEBO;
-  RP_UBO mUBO;
-  GLuint mNumElements{0};
+  VAO m_vao;
+  VBO m_vbo;
+  EBO m_ebo;
+  UBO m_ubo;
+  GLuint m_num_elements{0};
 };
 
-class RP_Icon {
+class RPIcon {
 public:
-  RP_Icon();
-  NEVER_COPY(RP_Icon);
-  RP_Icon(RP_Icon &&other)
-      : mIconShader{std::move(other.mIconShader)},
-        mVAO{std::move(other.mVAO)} {};
-  void draw(const glm::vec4 &position, const glm::vec4 &color) const;
+  RPIcon();
+  NEVER_COPY(RPIcon);
+  RPIcon(RPIcon &&other)
+      : m_shader{std::move(other.m_shader)}, m_vao{std::move(other.m_vao)} {};
+  void Draw(const glm::vec4 &position, const glm::vec4 &color) const;
 
 private:
-  Shader mIconShader;
-  RP_VAO mVAO;
+  Shader m_shader;
+  VAO m_vao;
 };
 
-class RP_Tex {
+class RPTex {
 public:
-  RP_Tex();
-  NEVER_COPY(RP_Tex);
-  RP_Tex(RP_Tex &&other)
-      : mTexShader{std::move(other.mTexShader)}, mVAO{std::move(other.mVAO)},
-        mVBO{std::move(other.mVBO)},
-        muTextureBinding{other.muTextureBinding} {};
-  void draw(const RP_FBO &FBO) const;
+  RPTex();
+  NEVER_COPY(RPTex);
+  RPTex(RPTex &&other)
+      : m_shader{std::move(other.m_shader)}, m_vao{std::move(other.m_vao)},
+        m_vbo{std::move(other.m_vbo)},
+        m_texture_binding{other.m_texture_binding} {};
+  void Draw(const FBO &fbo) const;
 
 private:
-  Shader mTexShader;
-  RP_VAO mVAO;
-  RP_VBO mVBO;
-  const GLuint muTextureBinding{1};
+  Shader m_shader;
+  VAO m_vao;
+  VBO m_vbo;
+  const GLuint m_texture_binding{1};
 };

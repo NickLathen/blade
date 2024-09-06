@@ -16,27 +16,27 @@
 // $mat.refracti 1.50
 
 Material::Material(const aiMaterial *material) {
-  aiColor3D colorOut;
-  float shininessOut;
-  if (material->Get(AI_MATKEY_COLOR_AMBIENT, colorOut) != aiReturn_SUCCESS) {
+  aiColor3D color_out;
+  float shininess_out;
+  if (material->Get(AI_MATKEY_COLOR_AMBIENT, color_out) != aiReturn_SUCCESS) {
     std::cerr << "Missing ambient color for material." << std::endl;
   } else {
-    memcpy(&mProperties.ambientColor, &colorOut.r, sizeof(float) * 3);
+    memcpy(&m_properties.ambient_color, &color_out.r, sizeof(float) * 3);
   }
-  if (material->Get(AI_MATKEY_COLOR_DIFFUSE, colorOut) != aiReturn_SUCCESS) {
+  if (material->Get(AI_MATKEY_COLOR_DIFFUSE, color_out) != aiReturn_SUCCESS) {
     std::cerr << "Missing diffuse color for material." << std::endl;
   } else {
-    memcpy(&mProperties.diffuseColor, &colorOut.r, sizeof(float) * 3);
+    memcpy(&m_properties.diffuse_color, &color_out.r, sizeof(float) * 3);
   }
-  if (material->Get(AI_MATKEY_COLOR_SPECULAR, colorOut) != aiReturn_SUCCESS) {
+  if (material->Get(AI_MATKEY_COLOR_SPECULAR, color_out) != aiReturn_SUCCESS) {
     std::cerr << "Missing specular color for material." << std::endl;
   } else {
-    memcpy(&mProperties.specularColor, &colorOut.r, sizeof(float) * 3);
+    memcpy(&m_properties.specular_color, &color_out.r, sizeof(float) * 3);
   }
-  if (material->Get(AI_MATKEY_SHININESS, shininessOut) != aiReturn_SUCCESS) {
+  if (material->Get(AI_MATKEY_SHININESS, shininess_out) != aiReturn_SUCCESS) {
     std::cerr << "Missing shininess for material." << std::endl;
   } else {
-    mProperties.shininess = shininessOut;
+    m_properties.shininess = shininess_out;
   }
 };
-const BSDFMaterial &Material::getProperties() const { return mProperties; };
+const BSDFMaterial &Material::GetProperties() const { return m_properties; };

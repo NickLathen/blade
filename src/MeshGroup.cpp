@@ -4,9 +4,9 @@
 #include "MeshGroup.hpp"
 #include "utils.hpp"
 
-MeshGroup import(const std::string &pFile) {
+MeshGroup Import(const std::string &p_file) {
   Assimp::Importer importer;
-  const aiScene *scene = importer.ReadFile(pFile, 0);
+  const aiScene *scene = importer.ReadFile(p_file, 0);
 
   if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE ||
       !scene->mRootNode) {
@@ -17,68 +17,68 @@ MeshGroup import(const std::string &pFile) {
 }
 
 MeshGroup::MeshGroup(const aiScene *scene) {
-  // Construct mMaterials
+  // Construct m_materials
   for (uint i = 0; i < scene->mNumMaterials; i++) {
-    _addMaterial(scene->mMaterials[i]);
+    AddMaterial(scene->mMaterials[i]);
   }
 
-  // Construct mMeshes, mMeshMap
-  uint vertexOffset = 0;
-  uint elementOffset = 0;
-  auto processNode = [&](auto &processNode, const aiNode *node) -> void {
+  // Construct m_meshes, m_mesh_map
+  uint vertex_offset = 0;
+  uint element_offset = 0;
+  auto ProcessNode = [&](auto &ProcessNode, const aiNode *node) -> void {
     for (uint i = 0; i < node->mNumMeshes; i++) {
       const aiMesh *mesh = scene->mMeshes[node->mMeshes[i]];
-      uint meshIdx = _addMesh(mesh, vertexOffset, elementOffset);
-      elementOffset += mMeshes[meshIdx].getNumElements();
-      vertexOffset += mMeshes[meshIdx].getNumVertices();
+      uint mesh_idx = AddMesh(mesh, vertex_offset, element_offset);
+      element_offset += m_meshes[mesh_idx].GetNumElements();
+      vertex_offset += m_meshes[mesh_idx].GetNumVertices();
     }
     for (uint i = 0; i < node->mNumChildren; i++) {
-      processNode(processNode, node->mChildren[i]);
+      ProcessNode(ProcessNode, node->mChildren[i]);
     }
   };
-  processNode(processNode, scene->mRootNode);
+  ProcessNode(ProcessNode, scene->mRootNode);
 
-  // Construct client mVertexBuffer/mElementBuffer
-  mElementBuffer.reserve(getNumElements());
-  mVertexBuffer.reserve(getNumVertices());
-  for (uint meshIdx = 0; meshIdx < mMeshes.size(); meshIdx++) {
-    const Mesh &mesh = mMeshes[meshIdx];
-    const MeshMap &meshMap = mMeshMap[meshIdx];
-    const std::vector<GLuint> elementBuffer =
-        mesh.getElementBuffer(meshMap.vertexOffset);
-    const std::vector<MeshVertexBuffer> vertexBuffer =
-        mesh.getVertexBuffer(meshMap.materialId);
-    mElementBuffer.insert(mElementBuffer.end(), elementBuffer.begin(),
-                          elementBuffer.end());
-    mVertexBuffer.insert(mVertexBuffer.end(), vertexBuffer.begin(),
-                         vertexBuffer.end());
+  // Construct client m_vertex_buffer/m_element_buffer
+  m_element_buffer.reserve(GetNumElements());
+  m_vertex_buffer.reserve(GetNumVertices());
+  for (uint mesh_idx = 0; mesh_idx < m_meshes.size(); mesh_idx++) {
+    const Mesh &mesh = m_meshes[mesh_idx];
+    const MeshMap &mesh_map = m_mesh_map[mesh_idx];
+    const std::vector<GLuint> element_buffer =
+        mesh.GetElementBuffer(mesh_map.vertex_offset);
+    const std::vector<MeshVertexBuffer> vertex_buffer =
+        mesh.GetVertexBuffer(mesh_map.material_idx);
+    m_element_buffer.insert(m_element_buffer.end(), element_buffer.begin(),
+                            element_buffer.end());
+    m_vertex_buffer.insert(m_vertex_buffer.end(), vertex_buffer.begin(),
+                           vertex_buffer.end());
   }
 };
 
-GLuint MeshGroup::getNumElements() const { return mElementBuffer.size(); };
-GLuint MeshGroup::getNumVertices() const { return mVertexBuffer.size(); };
+GLuint MeshGroup::GetNumElements() const { return m_element_buffer.size(); };
+GLuint MeshGroup::GetNumVertices() const { return m_vertex_buffer.size(); };
 
-const std::vector<Material> &MeshGroup::getMaterials() const {
-  return mMaterials;
+const std::vector<Material> &MeshGroup::GetMaterials() const {
+  return m_materials;
 };
-const std::vector<MeshVertexBuffer> &MeshGroup::getVertexBuffer() const {
-  return mVertexBuffer;
+const std::vector<MeshVertexBuffer> &MeshGroup::GetVertexBuffer() const {
+  return m_vertex_buffer;
 };
-const std::vector<GLuint> &MeshGroup::getElementBuffer() const {
-  return mElementBuffer;
-};
-
-uint MeshGroup::_addMaterial(const aiMaterial *material) {
-  mMaterials.emplace_back(material);
-  return mMaterials.size() - 1;
+const std::vector<GLuint> &MeshGroup::GetElementBuffer() const {
+  return m_element_buffer;
 };
 
-uint MeshGroup::_addMesh(const aiMesh *mesh, GLuint vertexOffset,
-                         GLuint elementOffset) {
-  mMeshes.emplace_back(mesh);
-  uint meshIdx = mMeshes.size() - 1;
-  mMeshMap.push_back((MeshMap){.materialId = mesh->mMaterialIndex,
-                               .vertexOffset = vertexOffset,
-                               .elementOffset = elementOffset});
-  return meshIdx;
+uint MeshGroup::AddMaterial(const aiMaterial *material) {
+  m_materials.emplace_back(material);
+  return m_materials.size() - 1;
+};
+
+uint MeshGroup::AddMesh(const aiMesh *mesh, GLuint vertex_offset,
+                        GLuint element_offset) {
+  m_meshes.emplace_back(mesh);
+  uint mesh_idx = m_meshes.size() - 1;
+  m_mesh_map.push_back((MeshMap){.material_idx = mesh->mMaterialIndex,
+                                 .vertex_offset = vertex_offset,
+                                 .element_offset = element_offset});
+  return mesh_idx;
 }

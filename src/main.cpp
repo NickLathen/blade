@@ -2,9 +2,9 @@
 #include "Platform.hpp"
 
 int main(int argc, char *args[]) {
-  int SCREEN_WIDTH = 1600;
-  int SCREEN_HEIGHT = 1200;
-  Platform platform{SCREEN_WIDTH, SCREEN_HEIGHT};
+  const int kScreenWidth = 1600;
+  const int kScreenHeight = 1200;
+  Platform platform{kScreenWidth, kScreenHeight};
   Game game{&platform};
-  platform.loop(game);
+  platform.Loop(game);
 }
