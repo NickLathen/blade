@@ -59,14 +59,19 @@ float SampleNoise(vec2 st) {
   return texture(uNoiseTexture, st).x;
 }
 
+vec2 ScaleToCenter(vec2 coords, float scale) {
+  return coords + (0.5f - coords) * scale;
+}
+
 vec2 TransformTexCoords(vec2 texCoords) {
   vec2 scaledCoords = texCoords * uRepeatScale;
   vec2 tileCoords = floor(scaledCoords);
   vec2 noiseCoords = tileCoords / uRepeatScale;
+  noiseCoords = ScaleToCenter(noiseCoords, 0.5f);
   vec2 localCoords = scaledCoords - tileCoords;
-  float angle = SampleNoise(noiseCoords * uNoiseScale) * uRotationScale;
+  float angle = SampleNoise((noiseCoords - 0.2f) * uNoiseScale) * uRotationScale;
   float translationX = SampleNoise(noiseCoords * uNoiseScale) * uTranslationScale;
-  float translationY = SampleNoise(noiseCoords * uNoiseScale) * uTranslationScale;
+  float translationY = SampleNoise((noiseCoords + 0.2f) * uNoiseScale) * uTranslationScale;
   mat2 rotation = mat2(cos(angle), sin(angle), -sin(angle), cos(angle));
   vec2 rotatedCoords = rotation * (localCoords - 0.5) + 0.5;
   vec2 finalCoords = rotatedCoords + vec2(translationX, translationY);
@@ -74,7 +79,7 @@ vec2 TransformTexCoords(vec2 texCoords) {
 }
 
 vec4 AdjustSaturation(vec4 color, float saturation) {
-  float luminance = dot(color.rgb, vec3(0.299, 0.587, 0.114));
+  float luminance = abs(dot(color.rgb, vec3(0.299, 0.587, 0.114)));
   vec3 gray = vec3(luminance);
   vec3 adjustedColor = mix(gray, color.rgb, saturation);
   return vec4(adjustedColor, color.a);
@@ -108,13 +113,15 @@ vec4 AdjustBrightness(vec4 color, float brightness) {
 }
 
 vec4 TransformTexColor(vec4 color, vec2 texCoords) {
-  vec2 noiseCoords = texCoords + ((0.5f - texCoords) * .5);
+  vec2 noiseCoords = ScaleToCenter(texCoords, 0.5f);
   vec4 colorOut = color;
   float rHue = SampleNoise(noiseCoords + 0.1f);
-  float rSaturation = SampleNoise(noiseCoords - 0.1f) - 0.5;
-  float rBrightness = SampleNoise(noiseCoords + 0.2f) - 0.5;
+  //saturation -1.0 to 0.0f (desaturate only)
+  float rSaturation = -SampleNoise(noiseCoords - 0.1f);
+  //brightness -.5 to +.5
+  float rBrightness = SampleNoise(noiseCoords + 0.2f) - 0.5f;
   colorOut = AdjustHue(colorOut, uHueOffset * rHue);
-  colorOut = AdjustSaturation(colorOut, 1.0f + uSaturation * rSaturation);
+  colorOut = AdjustSaturation(colorOut, clamp(1.0f + uSaturation * rSaturation, 0.0, 1.0));
   colorOut = AdjustBrightness(colorOut, 1.0f + uBrightness * rBrightness);
   return colorOut;
 }
@@ -123,8 +130,6 @@ void main() {
   Material material = uMaterial.materials[materialIdx];
   vec3 nNormalDir = normalize(normalDir);
   vec3 lightDir = normalize(uLightDir);
-  vec3 lightRelativePosition = uLightPos - worldPos;
-  vec3 specLightDir = normalize(lightRelativePosition);
 
   //diffuse lighting
   float diffuseFactor = dot(nNormalDir, lightDir);
@@ -137,18 +142,18 @@ void main() {
   float shininess = material.shininess / uShininessScale;
   float specularFactor = max(dot(reflectDir, -viewDir), 0.0);
   specularFactor = pow(specularFactor, uSpecularPower) * shininess;
-
-
-  vec3 litColor = diffuseColor * material.diffuseColor +
-                  specularFactor * uLightColor * material.specularColor;
-    
-  vec3 ambientColor = uAmbientLightColor * material.ambientColor * material.diffuseColor;
-  vec3 finalColor = ambientColor +
-                    CalcShadowFactor(lightSpacePosition, diffuseFactor) * litColor;
-  FragColor = vec4(clamp(finalColor, 0.0, 1.0), 1.0f);
   
   vec2 transformedCoords = TransformTexCoords(texCoords);
-  vec4 color = texture(uDiffuseTexture, transformedCoords);
+  vec2 noiseCoords = ScaleToCenter(texCoords, 0.5f);
+  vec4 color = mix(texture(uDiffuseTexture, transformedCoords),
+                   texture(uBlendTexture, transformedCoords),
+                   SampleNoise(noiseCoords - 0.25f)
+                  );
   color = TransformTexColor(color, texCoords);
-  FragColor = color * CalcShadowFactor(lightSpacePosition, diffuseFactor);
+  vec3 litColor = diffuseColor * color.xyz +
+                  specularFactor * uLightColor * material.specularColor;
+  vec3 ambientColor = .1 * color.xyz;
+  float shadowFactor = CalcShadowFactor(lightSpacePosition, diffuseFactor);
+  color = vec4(ambientColor + (litColor * shadowFactor), 1.0f);
+  FragColor = color;
 };

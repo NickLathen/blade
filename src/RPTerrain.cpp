@@ -29,11 +29,13 @@ RPTerrain::RPTerrain() {
   // y = sin(x) + cos(z)
   // dy/dx = cos(x)
   // dy/dz = -sin(z)
-  glm::vec2 x_range{-32.0, 32.0};
-  glm::vec2 z_range{-32.0, 32.0};
-  uint width = 256;
-  uint depth = 256;
-  RPTerrainVertexBuffer terrain_buffer[width * depth];
+  glm::vec2 x_range{-512.0, 512.0};
+  glm::vec2 z_range{-512.0, 512.0};
+  uint width = 1024;
+  uint depth = 1024;
+  uint buffer_size = sizeof(RPTerrainVertexBuffer) * width * depth;
+  RPTerrainVertexBuffer *terrain_buffer =
+      (RPTerrainVertexBuffer *)malloc(buffer_size);
   const siv::PerlinNoise::seed_type seed = 123456u;
   const siv::PerlinNoise perlin{seed};
   for (uint i = 0; i < depth; i++) {
@@ -41,14 +43,14 @@ RPTerrain::RPTerrain() {
       float x_coord = Rescale(x_range.x, x_range.y, j, 0, width);
       float z_coord = Rescale(z_range.x, z_range.y, i, 0, depth);
       float epsilon = .0001;
-      float scale = 1.0f / 8.0f;
+      float scale = 1.0f / 70.0f;
       float perlin_x = (x_coord + 32.0) * scale * sin(.7);
       float perlin_z = (z_coord + 32.0) * scale * -cos(.7);
 
       float py = perlin.noise2D(perlin_x, perlin_z);
       float pyx = perlin.noise2D(perlin_x + epsilon, perlin_z);
       float pyz = perlin.noise2D(perlin_x, perlin_z + epsilon);
-      float y = 3.0f * py;
+      float y = 20.0f * py;
 
       glm::vec3 position{x_coord, y - 5.0f, z_coord};
 
@@ -57,13 +59,12 @@ RPTerrain::RPTerrain() {
       glm::vec3 x_tangent{1.0, dy_dx, 0.0};
       glm::vec3 y_tangent{0.0, dy_dz, 1.0};
       glm::vec3 normal = glm::normalize(glm::cross(y_tangent, x_tangent));
-
       glm::vec2 tex_coords{1.0 * j / width, 1.0 * i / depth};
-
       terrain_buffer[i * depth + j] = {position, normal, tex_coords};
     }
   }
-  m_vbo.BufferData(sizeof(terrain_buffer), terrain_buffer, GL_STATIC_DRAW);
+  m_vbo.BufferData(buffer_size, terrain_buffer, GL_STATIC_DRAW);
+  free(terrain_buffer);
   uint num_strips = depth - 1;
   uint vertices_per_strip = 2 * width;
   uint degenerate_vertices = 2 * (depth - 2);
