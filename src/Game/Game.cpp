@@ -123,14 +123,19 @@ void RenderGui(const GameTimer &game_timer, Camera &camera, Light &light,
   ImGui::DragFloat("camera.near", &camera.near, 0.001f, 0.001f, 1.0f);
   ImGui::DragFloat("camera.far", &camera.far, 0.1f, 1.0f, 100.0f);
 
-  ImGui::DragFloat("tileConfig.repeat_scale", &tileConfig.repeat_scale, 0.5f,
-                   0.0f, 100.0f);
-  ImGui::DragFloat("tileConfig.rotation_scale", &tileConfig.rotation_scale,
-                   0.1f, 0.0f, 300.0f);
-  ImGui::DragFloat("tileConfig.translation_scale",
-                   &tileConfig.translation_scale, 0.1f, 0.0f, 50.0f);
-  ImGui::DragFloat("tileConfig.noise_scale", &tileConfig.noise_scale, 0.01f,
-                   0.0f, 1.0f);
+  ImGui::SliderFloat("tileConfig.repeat_scale", &tileConfig.repeat_scale, 0.0f,
+                     100.0f);
+  ImGui::SliderFloat("tileConfig.rotation_scale", &tileConfig.rotation_scale,
+                     0.0f, 300.0f);
+  ImGui::SliderFloat("tileConfig.translation_scale",
+                     &tileConfig.translation_scale, 0.0f, 50.0f);
+  ImGui::SliderFloat("tileConfig.noise_scale", &tileConfig.noise_scale, 0.0f,
+                     1.0f);
+  ImGui::SliderFloat("tileConfig.hue_scale", &tileConfig.hue_scale, 0.0f, 1.0f);
+  ImGui::SliderFloat("tileConfig.saturation_scale",
+                     &tileConfig.saturation_scale, 0.0f, 1.0f);
+  ImGui::SliderFloat("tileConfig.brightness_scale",
+                     &tileConfig.brightness_scale, 0.0f, 10.0f);
 
   ImGui::Text("%.1f FPS (%.3f ms/frame)", io.Framerate, 1000.0f / io.Framerate);
   ImGui::End();
@@ -144,7 +149,7 @@ Game::Game(Platform *platform) : m_platform{platform} {
                   "Poliigon_GrassPatchyGround_4585_BaseColor.jpg"));
   m_textures.emplace_back(LoadTexture(
       "assets/textures/GroundDirtRocky020/GroundDirtRocky020_COL_2K.jpg"));
-  m_textures.emplace_back(NoiseTexture(1024, 10.0f, 10.0f));
+  m_textures.emplace_back(NoiseTexture(1024, 100.0f, 100.0f));
   m_mesh_groups.emplace_back(Import("assets/fullroom/fullroom.obj"));
   m_rp_material.emplace_back(m_mesh_groups[0].GetMaterials(),
                              m_mesh_groups[0].GetVertexBuffer(),
@@ -175,10 +180,15 @@ Game::Game(Platform *platform) : m_platform{platform} {
   m_model_matrix =
       glm::rotate(glm::mat4(1.0f), -1.0f, glm::vec3(0.0, 1.0, 0.0));
   m_terrain_matrix = glm::mat4(1.0f);
-  m_tile_config = {.repeat_scale = 25.0f,
-                   .rotation_scale = 100.0f,
-                   .translation_scale = 10.0f,
-                   .noise_scale = 1.0f};
+  m_tile_config = {
+      .repeat_scale = 40.0f,
+      .rotation_scale = 100.0f,
+      .translation_scale = 10.0f,
+      .noise_scale = 1.0f,
+      .hue_scale = 0.15f,
+      .saturation_scale = 0.5f,
+      .brightness_scale = 0.3f,
+  };
   m_game_timer.count_per_microsecond =
       SDL_GetPerformanceFrequency() / 1'000'000;
 }

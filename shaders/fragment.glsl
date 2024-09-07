@@ -24,14 +24,17 @@ uniform float uRepeatScale;
 uniform float uRotationScale;
 uniform float uTranslationScale;
 uniform float uNoiseScale;
+uniform float uSaturation;
+uniform float uHueOffset;
+uniform float uBrightness;
 
 //Materials UBO
 #define NUM_MATERIALS 256
 struct Material {
-    vec3 ambientColor;
-    vec3 diffuseColor;
-    vec3 specularColor;
-    float shininess;
+  vec3 ambientColor;
+  vec3 diffuseColor;
+  vec3 specularColor;
+  float shininess;
 };
 layout(std140) uniform uMaterialBlock {
   Material materials[NUM_MATERIALS];
@@ -53,7 +56,7 @@ float CalcShadowFactor(vec4 position, float diffuseFactor) {
 }
 
 float SampleNoise(vec2 st) {
-    return texture(uNoiseTexture, st).x;
+  return texture(uNoiseTexture, st).x;
 }
 
 vec2 TransformTexCoords(vec2 texCoords) {
@@ -68,6 +71,52 @@ vec2 TransformTexCoords(vec2 texCoords) {
   vec2 rotatedCoords = rotation * (localCoords - 0.5) + 0.5;
   vec2 finalCoords = rotatedCoords + vec2(translationX, translationY);
   return finalCoords;
+}
+
+vec4 AdjustSaturation(vec4 color, float saturation) {
+  float luminance = dot(color.rgb, vec3(0.299, 0.587, 0.114));
+  vec3 gray = vec3(luminance);
+  vec3 adjustedColor = mix(gray, color.rgb, saturation);
+  return vec4(adjustedColor, color.a);
+}
+
+vec3 RgbToHsv(vec3 c) {
+  vec4 K = vec4(0.0, -1.0/3.0, 2.0/3.0, -1.0);
+  vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
+  vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
+  float d = q.x - min(q.w, q.y);
+  float e = 1.0e-10;
+  return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+}
+
+vec3 HsvToRgb(vec3 c) {
+  vec4 K = vec4(1.0, 2.0/3.0, 1.0/3.0, 3.0);
+  vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+  return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+}
+
+vec4 AdjustHue(vec4 color, float hueOffset) {
+  vec3 hsv = RgbToHsv(color.rgb);
+  hsv.x = fract(hsv.x + hueOffset);
+  vec3 adjustedColor = HsvToRgb(hsv);
+  return vec4(adjustedColor, color.a);
+}
+
+vec4 AdjustBrightness(vec4 color, float brightness) {
+  vec3 adjustedColor = brightness * color.xyz;
+  return vec4(clamp(adjustedColor, 0.0, 1.0), color.a);
+}
+
+vec4 TransformTexColor(vec4 color, vec2 texCoords) {
+  vec2 noiseCoords = texCoords + ((0.5f - texCoords) * .5);
+  vec4 colorOut = color;
+  float rHue = SampleNoise(noiseCoords + 0.1f);
+  float rSaturation = SampleNoise(noiseCoords - 0.1f) - 0.5;
+  float rBrightness = SampleNoise(noiseCoords + 0.2f) - 0.5;
+  colorOut = AdjustHue(colorOut, uHueOffset * rHue);
+  colorOut = AdjustSaturation(colorOut, 1.0f + uSaturation * rSaturation);
+  colorOut = AdjustBrightness(colorOut, 1.0f + uBrightness * rBrightness);
+  return colorOut;
 }
 
 void main() {
@@ -99,6 +148,7 @@ void main() {
   FragColor = vec4(clamp(finalColor, 0.0, 1.0), 1.0f);
   
   vec2 transformedCoords = TransformTexCoords(texCoords);
-  vec4 textureColor = texture(uDiffuseTexture, transformedCoords);
-  FragColor = textureColor;
+  vec4 color = texture(uDiffuseTexture, transformedCoords);
+  color = TransformTexColor(color, texCoords);
+  FragColor = color * CalcShadowFactor(lightSpacePosition, diffuseFactor);
 };

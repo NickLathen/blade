@@ -48,7 +48,7 @@ RPTerrain::RPTerrain() {
       float py = perlin.noise2D(perlin_x, perlin_z);
       float pyx = perlin.noise2D(perlin_x + epsilon, perlin_z);
       float pyz = perlin.noise2D(perlin_x, perlin_z + epsilon);
-      float y = 0.0f * py;
+      float y = 3.0f * py;
 
       glm::vec3 position{x_coord, y - 5.0f, z_coord};
 

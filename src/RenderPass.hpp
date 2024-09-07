@@ -28,6 +28,9 @@ struct TextureTileConfig {
   float rotation_scale;
   float translation_scale;
   float noise_scale;
+  float hue_scale;
+  float saturation_scale;
+  float brightness_scale;
 };
 
 class VBO {
@@ -231,6 +234,9 @@ public:
     m_shader.Uniform1f("uRotationScale", tileConfig.rotation_scale);
     m_shader.Uniform1f("uTranslationScale", tileConfig.translation_scale);
     m_shader.Uniform1f("uNoiseScale", tileConfig.noise_scale);
+    m_shader.Uniform1f("uHueOffset", tileConfig.hue_scale);
+    m_shader.Uniform1f("uSaturation", tileConfig.saturation_scale);
+    m_shader.Uniform1f("uBrightness", tileConfig.brightness_scale);
   }
   void BindMaterialsBuffer(const UBO &ubo) const {
     ubo.BindBufferBase(m_material_block_binding);
