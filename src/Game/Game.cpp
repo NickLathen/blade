@@ -1,8 +1,9 @@
 #include <imgui.h>
 #include <iostream>
 
+#include <PerlinNoise.hpp>
 #define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
+#include <stb_image.h>
 
 #include "../Game.hpp"
 #include "../MeshGroup.hpp"
@@ -45,7 +46,7 @@ void EnableAnisotropicFilter(const RPTexture &texture) {
   }
 }
 
-RPTexture LoadTexure(const std::string &path) {
+RPTexture LoadTexture(const std::string &path) {
   RPTexture texture{};
   texture.BindTexture(GL_TEXTURE_2D);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
@@ -70,6 +71,39 @@ RPTexture LoadTexure(const std::string &path) {
   return texture;
 }
 
+RPTexture NoiseTexture(int texture_size, float x_scale, float y_scale) {
+  RPTexture texture{};
+  texture.BindTexture(GL_TEXTURE_2D);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
+                  GL_LINEAR_MIPMAP_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+  int width = texture_size;
+  int height = texture_size;
+  float inverse_width = 1.0 / width;
+  float inverse_height = 1.0 / height;
+  int size = width * height;
+  float *data = (float *)malloc(sizeof(float) * size);
+  const siv::PerlinNoise::seed_type seed = 234567u;
+  const siv::PerlinNoise perlin{seed};
+  for (int i = 0; i < height; i++) {
+    float x_frac = i * inverse_height;
+    int rowOffset = i * width;
+    for (int j = 0; j < width; j++) {
+      float y_frac = j * inverse_width;
+      data[rowOffset + j] =
+          perlin.noise2D_01(x_frac * x_scale, y_frac * y_scale);
+    }
+  }
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, width, height, 0, GL_RED, GL_FLOAT,
+               data);
+  glGenerateMipmap(GL_TEXTURE_2D);
+  free(data);
+  return texture;
+}
+
 void RenderGui(const GameTimer &game_timer, Camera &camera, Light &light,
                TextureTileConfig &tileConfig, glm::mat4 &model_matrix) {
 
@@ -83,8 +117,6 @@ void RenderGui(const GameTimer &game_timer, Camera &camera, Light &light,
                     5.0f);
   ImGui::DragFloat4("uModelMatrix[3]", &model_matrix[3][0], .01f, -5.0f, 5.0f);
   ImGui::DragFloat3("camera.target", &camera.target[0], .01f, -10.0, 10.0f);
-  // ImGui::DragFloat3("light.uLightPosition", &light.position[0], .01f,
-  // -10.0f, 10.0f);
   ImGui::DragFloat3("light.uLightDir", &light.direction[0], .01f, -10.0f,
                     10.0f);
   ImGui::DragFloat("camera.fov", &camera.fov, 1.0f, 0.0f, 120.0f);
@@ -97,8 +129,8 @@ void RenderGui(const GameTimer &game_timer, Camera &camera, Light &light,
                    0.1f, 0.0f, 300.0f);
   ImGui::DragFloat("tileConfig.translation_scale",
                    &tileConfig.translation_scale, 0.1f, 0.0f, 50.0f);
-  ImGui::DragFloat("tileConfig.noise_scale", &tileConfig.noise_scale, 0.0001f,
-                   0.0f, 18.0f);
+  ImGui::DragFloat("tileConfig.noise_scale", &tileConfig.noise_scale, 0.01f,
+                   0.0f, 1.0f);
 
   ImGui::Text("%.1f FPS (%.3f ms/frame)", io.Framerate, 1000.0f / io.Framerate);
   ImGui::End();
@@ -106,12 +138,13 @@ void RenderGui(const GameTimer &game_timer, Camera &camera, Light &light,
 
 Game::Game(Platform *platform) : m_platform{platform} {
   // m_textures.emplace_back(
-  //     LoadTexure("assets/textures/eight_square_test/eight_square_test.png"));
+  //     LoadTexture("assets/textures/eight_square_test/eight_square_test.png"));
   m_textures.emplace_back(
-      LoadTexure("assets/textures/Poliigon_GrassPatchyGround_4585/2K/"
-                 "Poliigon_GrassPatchyGround_4585_BaseColor.jpg"));
-  m_textures.emplace_back(LoadTexure(
+      LoadTexture("assets/textures/Poliigon_GrassPatchyGround_4585/2K/"
+                  "Poliigon_GrassPatchyGround_4585_BaseColor.jpg"));
+  m_textures.emplace_back(LoadTexture(
       "assets/textures/GroundDirtRocky020/GroundDirtRocky020_COL_2K.jpg"));
+  m_textures.emplace_back(NoiseTexture(1024, 10.0f, 10.0f));
   m_mesh_groups.emplace_back(Import("assets/fullroom/fullroom.obj"));
   m_rp_material.emplace_back(m_mesh_groups[0].GetMaterials(),
                              m_mesh_groups[0].GetVertexBuffer(),
@@ -142,10 +175,10 @@ Game::Game(Platform *platform) : m_platform{platform} {
   m_model_matrix =
       glm::rotate(glm::mat4(1.0f), -1.0f, glm::vec3(0.0, 1.0, 0.0));
   m_terrain_matrix = glm::mat4(1.0f);
-  m_tile_config = {.repeat_scale = 5.0f,
+  m_tile_config = {.repeat_scale = 25.0f,
                    .rotation_scale = 100.0f,
                    .translation_scale = 10.0f,
-                   .noise_scale = 17.983748931f};
+                   .noise_scale = 1.0f};
   m_game_timer.count_per_microsecond =
       SDL_GetPerformanceFrequency() / 1'000'000;
 }
@@ -231,7 +264,6 @@ void HandleInput(Camera &camera) {
                             amount_up * kMouseMovementSensitivity);
       } else {
         if (y != 0) {
-          float amount_up = -1.0 * y * kMouseMovementSensitivity;
           OrbitPitch(camera.transform, camera.target,
                      amount_up * kMouseLookSensitivity);
         }
@@ -289,6 +321,7 @@ void Game::Render() {
   m_shader_material[0].BindDepthTexture(m_rp_depth_map[0].GetTexture());
   m_shader_material[0].BindDiffuseTexture(m_textures[0]);
   m_shader_material[0].BindBlendTexture(m_textures[1]);
+  m_shader_material[0].BindNoiseTexture(m_textures[2]);
 
   // m_shader_material[0].SetUniforms(camera_position, m_light, model_vp,
   //                                  model_light_vp, m_model_matrix);

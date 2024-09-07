@@ -190,6 +190,7 @@ public:
     m_shader.Uniform1i("uDepthTexture", m_depth_texture);
     m_shader.Uniform1i("uDiffuseTexture", m_diffuse_texture);
     m_shader.Uniform1i("uBlendTexture", m_blend_texture);
+    m_shader.Uniform1i("uNoiseTexture", m_noise_texture);
     glUseProgram(0);
   };
   NEVER_COPY(RPMaterialShader);
@@ -198,6 +199,7 @@ public:
         m_depth_texture{other.m_depth_texture},
         m_diffuse_texture{other.m_diffuse_texture},
         m_blend_texture{other.m_blend_texture},
+        m_noise_texture{other.m_noise_texture},
         m_material_block_binding{other.m_material_block_binding} {};
   void Begin() {
     glGetBooleanv(GL_DEPTH_TEST, &g_depth_test);
@@ -233,17 +235,22 @@ public:
   void BindMaterialsBuffer(const UBO &ubo) const {
     ubo.BindBufferBase(m_material_block_binding);
   }
-  void BindDepthTexture(const RPTexture &texture) const {
-    glActiveTexture(GL_TEXTURE0 + m_depth_texture);
+  void BindTexture(const RPTexture &texture,
+                   const GLuint texture_location) const {
+    glActiveTexture(GL_TEXTURE0 + texture_location);
     texture.BindTexture(GL_TEXTURE_2D);
+  }
+  void BindDepthTexture(const RPTexture &texture) const {
+    BindTexture(texture, m_depth_texture);
   }
   void BindDiffuseTexture(const RPTexture &texture) const {
-    glActiveTexture(GL_TEXTURE0 + m_diffuse_texture);
-    texture.BindTexture(GL_TEXTURE_2D);
+    BindTexture(texture, m_diffuse_texture);
   }
   void BindBlendTexture(const RPTexture &texture) const {
-    glActiveTexture(GL_TEXTURE0 + m_blend_texture);
-    texture.BindTexture(GL_TEXTURE_2D);
+    BindTexture(texture, m_blend_texture);
+  }
+  void BindNoiseTexture(const RPTexture &texture) const {
+    BindTexture(texture, m_noise_texture);
   }
   void End() {
     if (g_depth_test == GL_FALSE)
@@ -259,6 +266,7 @@ private:
   const GLuint m_depth_texture{0};
   const GLuint m_diffuse_texture{1};
   const GLuint m_blend_texture{2};
+  const GLuint m_noise_texture{3};
   const GLuint m_material_block_binding{0};
   GLboolean g_depth_test, g_cull_face;
   GLint g_cull_face_mode, g_front_face;
