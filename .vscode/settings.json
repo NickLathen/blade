@@ -51,5 +51,8 @@
         "ctime": "cpp",
         "optional": "cpp",
         "variant": "cpp"
+    },
+    "search.exclude": {
+        "**/include": true
     }
 }

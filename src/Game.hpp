@@ -31,6 +31,7 @@ private:
   Camera m_camera;
   glm::mat4 m_model_matrix;
   glm::mat4 m_terrain_matrix;
+  TextureTileConfig m_tile_config;
   std::vector<MeshGroup> m_mesh_groups{};
   std::vector<RPMaterial> m_rp_material{};
   std::vector<RPDepthMap> m_rp_depth_map{};
@@ -38,5 +39,6 @@ private:
   std::vector<RPIcon> m_rp_icon{};
   std::vector<RPTerrain> m_rp_terrain{};
   std::vector<RPMaterialShader> m_shader_material{};
+  std::vector<RPTexture> m_textures{};
   GameTimer m_game_timer{};
 };

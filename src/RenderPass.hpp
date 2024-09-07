@@ -23,6 +23,13 @@ struct Light {
   glm::vec3 diffuse_color;
 };
 
+struct TextureTileConfig {
+  float repeat_scale;
+  float rotation_scale;
+  float translation_scale;
+  float noise_scale;
+};
+
 class VBO {
 public:
   VBO() { glGenBuffers(1, &m_vbo); }
@@ -139,7 +146,6 @@ public:
   NEVER_COPY(FBO);
   FBO(FBO &&other) : m_fbo{other.m_fbo} { other.m_fbo = 0; };
 
-  void BindTexture(GLenum target) const { glBindTexture(target, m_fbo); }
   void BindFramebuffer(GLenum target) const {
     glBindFramebuffer(target, m_fbo);
   }
@@ -182,12 +188,16 @@ public:
     m_shader.UseProgram();
     m_shader.UniformBlockBinding("uMaterialBlock", m_material_block_binding);
     m_shader.Uniform1i("uDepthTexture", m_depth_texture);
+    m_shader.Uniform1i("uDiffuseTexture", m_diffuse_texture);
+    m_shader.Uniform1i("uBlendTexture", m_blend_texture);
     glUseProgram(0);
   };
   NEVER_COPY(RPMaterialShader);
   RPMaterialShader(RPMaterialShader &&other)
       : m_shader{std::move(other.m_shader)},
         m_depth_texture{other.m_depth_texture},
+        m_diffuse_texture{other.m_diffuse_texture},
+        m_blend_texture{other.m_blend_texture},
         m_material_block_binding{other.m_material_block_binding} {};
   void Begin() {
     glGetBooleanv(GL_DEPTH_TEST, &g_depth_test);
@@ -200,7 +210,8 @@ public:
     glFrontFace(GL_CCW);
   }
   void SetUniforms(const glm::vec3 &camera_pos, const Light &light,
-                   const glm::mat4 &mvp, const glm::mat4 &light_mvp,
+                   const TextureTileConfig &tileConfig, const glm::mat4 &mvp,
+                   const glm::mat4 &light_mvp,
                    const glm::mat4 &model_matrix) const {
     m_shader.UseProgram();
     m_shader.Uniform3fv("uCameraPos", camera_pos);
@@ -213,13 +224,26 @@ public:
     m_shader.UniformMatrix4fv("uModelMatrix", GL_FALSE, model_matrix);
     m_shader.Uniform1f("uSpecularPower", 32.0f);
     m_shader.Uniform1f("uShininessScale", 2000.0f);
+
+    m_shader.Uniform1f("uRepeatScale", tileConfig.repeat_scale);
+    m_shader.Uniform1f("uRotationScale", tileConfig.rotation_scale);
+    m_shader.Uniform1f("uTranslationScale", tileConfig.translation_scale);
+    m_shader.Uniform1f("uNoiseScale", tileConfig.noise_scale);
   }
   void BindMaterialsBuffer(const UBO &ubo) const {
     ubo.BindBufferBase(m_material_block_binding);
   }
-  void BindDepthTexture(const FBO &fbo) const {
+  void BindDepthTexture(const RPTexture &texture) const {
     glActiveTexture(GL_TEXTURE0 + m_depth_texture);
-    fbo.BindTexture(GL_TEXTURE_2D);
+    texture.BindTexture(GL_TEXTURE_2D);
+  }
+  void BindDiffuseTexture(const RPTexture &texture) const {
+    glActiveTexture(GL_TEXTURE0 + m_diffuse_texture);
+    texture.BindTexture(GL_TEXTURE_2D);
+  }
+  void BindBlendTexture(const RPTexture &texture) const {
+    glActiveTexture(GL_TEXTURE0 + m_blend_texture);
+    texture.BindTexture(GL_TEXTURE_2D);
   }
   void End() {
     if (g_depth_test == GL_FALSE)
@@ -233,6 +257,8 @@ public:
 private:
   Shader m_shader;
   const GLuint m_depth_texture{0};
+  const GLuint m_diffuse_texture{1};
+  const GLuint m_blend_texture{2};
   const GLuint m_material_block_binding{0};
   GLboolean g_depth_test, g_cull_face;
   GLint g_cull_face_mode, g_front_face;
@@ -273,7 +299,7 @@ public:
   void Begin();
   void SetMVP(const glm::mat4 &mvp);
   void End();
-  const FBO &GetFBO() const;
+  const RPTexture &GetTexture() const;
 
 private:
   Shader m_shader;
@@ -325,7 +351,7 @@ public:
       : m_shader{std::move(other.m_shader)}, m_vao{std::move(other.m_vao)},
         m_vbo{std::move(other.m_vbo)},
         m_texture_binding{other.m_texture_binding} {};
-  void Draw(const FBO &fbo) const;
+  void Draw(const RPTexture &texture) const;
 
 private:
   Shader m_shader;

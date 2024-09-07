@@ -65,4 +65,4 @@ void RPDepthMap::End() {
     glEnable(GL_CULL_FACE);
 };
 
-const FBO &RPDepthMap::GetFBO() const { return m_fbo; };
+const RPTexture &RPDepthMap::GetTexture() const { return m_texture; };

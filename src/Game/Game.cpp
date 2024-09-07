@@ -1,11 +1,17 @@
 #include <imgui.h>
 #include <iostream>
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
 #include "../Game.hpp"
 #include "../MeshGroup.hpp"
 #include "../Platform.hpp"
 #include "../RenderPass.hpp"
 #include "../utils.hpp"
+
+#define GL_TEXTURE_MAX_ANISOTROPY_EXT 0x84FE
+#define GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT 0x84FF
 
 static void HandleResize(const SDL_Event *event, Camera &camera) {
   int x = event->window.data1;
@@ -14,8 +20,58 @@ static void HandleResize(const SDL_Event *event, Camera &camera) {
   camera.aspect_ratio = 1.0f * x / y;
 }
 
+void EnableAnisotropicFilter(const RPTexture &texture) {
+  const char *extensions = (const char *)glGetString(GL_EXTENSIONS);
+  GLfloat maxAnisotropy = 0.0f;
+  if (strstr(extensions, "GL_EXT_texture_filter_anisotropic")) {
+    glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT,
+                &maxAnisotropy); // Get the max anisotropy
+    printf("x%.0f Anisotropic filtering is supported.\n", maxAnisotropy);
+  } else {
+    printf("Anisotropic filtering is not supported.\n");
+    return;
+  }
+  typedef void (*glTexParameterfEXT_t)(GLenum target, GLenum pname,
+                                       GLfloat param);
+  glTexParameterfEXT_t glTexParameterfEXT =
+      (glTexParameterfEXT_t)SDL_GL_GetProcAddress("glTexParameterfEXT");
+
+  if (glTexParameterfEXT) {
+    texture.BindTexture(GL_TEXTURE_2D);
+    glTexParameterfEXT(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT,
+                       maxAnisotropy);
+  } else {
+    std::cout << "Anisotropic filtering function not available." << std::endl;
+  }
+}
+
+RPTexture LoadTexure(const std::string &path) {
+  RPTexture texture{};
+  texture.BindTexture(GL_TEXTURE_2D);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
+                  GL_LINEAR_MIPMAP_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  EnableAnisotropicFilter(texture);
+
+  int width, height, num_channels;
+  stbi_set_flip_vertically_on_load(true);
+  unsigned char *data =
+      stbi_load(path.c_str(), &width, &height, &num_channels, 0);
+  if (*data) {
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB,
+                 GL_UNSIGNED_BYTE, data);
+    glGenerateMipmap(GL_TEXTURE_2D);
+  } else {
+    std::cout << "Failed to load texture" << std::endl;
+  }
+  stbi_image_free(data);
+  return texture;
+}
+
 void RenderGui(const GameTimer &game_timer, Camera &camera, Light &light,
-               glm::mat4 &model_matrix) {
+               TextureTileConfig &tileConfig, glm::mat4 &model_matrix) {
 
   ImGuiIO &io = ImGui::GetIO();
   ImGui::Begin("Performance Counters");
@@ -35,11 +91,27 @@ void RenderGui(const GameTimer &game_timer, Camera &camera, Light &light,
   ImGui::DragFloat("camera.near", &camera.near, 0.001f, 0.001f, 1.0f);
   ImGui::DragFloat("camera.far", &camera.far, 0.1f, 1.0f, 100.0f);
 
+  ImGui::DragFloat("tileConfig.repeat_scale", &tileConfig.repeat_scale, 0.5f,
+                   0.0f, 100.0f);
+  ImGui::DragFloat("tileConfig.rotation_scale", &tileConfig.rotation_scale,
+                   0.1f, 0.0f, 300.0f);
+  ImGui::DragFloat("tileConfig.translation_scale",
+                   &tileConfig.translation_scale, 0.1f, 0.0f, 50.0f);
+  ImGui::DragFloat("tileConfig.noise_scale", &tileConfig.noise_scale, 0.0001f,
+                   0.0f, 18.0f);
+
   ImGui::Text("%.1f FPS (%.3f ms/frame)", io.Framerate, 1000.0f / io.Framerate);
   ImGui::End();
 }
 
 Game::Game(Platform *platform) : m_platform{platform} {
+  // m_textures.emplace_back(
+  //     LoadTexure("assets/textures/eight_square_test/eight_square_test.png"));
+  m_textures.emplace_back(
+      LoadTexure("assets/textures/Poliigon_GrassPatchyGround_4585/2K/"
+                 "Poliigon_GrassPatchyGround_4585_BaseColor.jpg"));
+  m_textures.emplace_back(LoadTexure(
+      "assets/textures/GroundDirtRocky020/GroundDirtRocky020_COL_2K.jpg"));
   m_mesh_groups.emplace_back(Import("assets/fullroom/fullroom.obj"));
   m_rp_material.emplace_back(m_mesh_groups[0].GetMaterials(),
                              m_mesh_groups[0].GetVertexBuffer(),
@@ -54,7 +126,7 @@ Game::Game(Platform *platform) : m_platform{platform} {
              .position = {-1.0f, 1.0f, 0.5f},
              .diffuse_color = {1.0f, 1.0f, 1.0f}};
 
-  glm::vec3 initial_camera_position{2, 2, 2};
+  glm::vec3 initial_camera_position{2, 0, 2};
   glm::vec3 initial_camera_target{initial_camera_position +
                                   glm::vec3(0, 0, -1)};
   glm::mat4 transform{glm::lookAt(initial_camera_position, // position
@@ -70,6 +142,10 @@ Game::Game(Platform *platform) : m_platform{platform} {
   m_model_matrix =
       glm::rotate(glm::mat4(1.0f), -1.0f, glm::vec3(0.0, 1.0, 0.0));
   m_terrain_matrix = glm::mat4(1.0f);
+  m_tile_config = {.repeat_scale = 5.0f,
+                   .rotation_scale = 100.0f,
+                   .translation_scale = 10.0f,
+                   .noise_scale = 17.983748931f};
   m_game_timer.count_per_microsecond =
       SDL_GetPerformanceFrequency() / 1'000'000;
 }
@@ -102,8 +178,10 @@ void Game::Event(const SDL_Event &event) {
     break;
   }
   case SDL_MOUSEWHEEL: {
-    MoveAlongCameraAxes(m_camera.transform,
-                        glm::vec3(0, 0, 1.0f * event.motion.x * .01f));
+    float kZoomSensitivity = 0.2f;
+    MoveAlongCameraAxes(
+        m_camera.transform,
+        glm::vec3(0, 0, 1.0f * event.motion.x * kZoomSensitivity));
     break;
   }
   case SDL_WINDOWEVENT:
@@ -114,7 +192,9 @@ void Game::Event(const SDL_Event &event) {
   }
 }
 void HandleInput(Camera &camera) {
-  float AMOUNT = .01f;
+  float kMovementSensitivity = 0.03f;
+  float kMouseMovementSensitivity = 0.005f;
+  float kMouseLookSensitivity = .005f;
   int x, y, l;
   Uint32 mouse_buttons = SDL_GetRelativeMouseState(&x, &y);
   const Uint8 *keyboard_buttons = SDL_GetKeyboardState(&l);
@@ -139,31 +219,34 @@ void HandleInput(Camera &camera) {
   }
   if (movement != glm::vec3{0.0}) {
     movement = glm::normalize(movement);
-    MoveAlongCameraAxes(camera.transform, movement * AMOUNT);
+    MoveAlongCameraAxes(camera.transform, movement * kMovementSensitivity);
   }
   if (x != 0 || y != 0) {
-    float SENSITIVITY = 0.005f;
-    float amount_right = 1.0 * x * SENSITIVITY;
-    float amount_up = -1.0 * y * SENSITIVITY;
+    float amount_right = 1.0 * x;
+    float amount_up = -1.0 * y;
     if (mouse_buttons & SDL_BUTTON_MMASK) {
       if (keyboard_buttons[SDL_SCANCODE_LSHIFT]) {
-        SlideViewWithTarget(camera.transform, camera.target, amount_right,
-                            amount_up);
+        SlideViewWithTarget(camera.transform, camera.target,
+                            amount_right * kMouseMovementSensitivity,
+                            amount_up * kMouseMovementSensitivity);
       } else {
-        if (amount_up != 0) {
-          OrbitPitch(camera.transform, camera.target, amount_up);
+        if (y != 0) {
+          float amount_up = -1.0 * y * kMouseMovementSensitivity;
+          OrbitPitch(camera.transform, camera.target,
+                     amount_up * kMouseLookSensitivity);
         }
-        if (amount_right != 0) {
-          OrbitYaw(camera.transform, camera.target, -amount_right);
+        if (x != 0) {
+          OrbitYaw(camera.transform, camera.target,
+                   -amount_right * kMouseLookSensitivity);
         }
       }
     }
     if (mouse_buttons & SDL_BUTTON_RMASK) {
-      if (amount_up != 0) {
-        RotatePitch(camera.transform, amount_up);
+      if (y != 0) {
+        RotatePitch(camera.transform, amount_up * kMouseLookSensitivity);
       }
-      if (amount_right != 0) {
-        RotateYaw(camera.transform, -amount_right);
+      if (x != 0) {
+        RotateYaw(camera.transform, -amount_right * kMouseLookSensitivity);
       }
     }
   }
@@ -181,7 +264,7 @@ void Game::Render() {
                        m_camera.near, m_camera.far);
   // glm::ortho(-3.0f, 3.0f, -3.0f, 3.0f, m_camera.near, m_camera.far);
   glm::mat4 vp = camera_projection * m_camera.transform;
-  glm::mat4 model_vp = vp * m_model_matrix;
+  // glm::mat4 model_vp = vp * m_model_matrix;
   glm::mat4 terrain_vp = vp * m_terrain_matrix;
 
   glm::mat4 light_transform =
@@ -203,16 +286,19 @@ void Game::Render() {
   // draw pass
   m_shader_material[0].Begin();
 
-  m_shader_material[0].BindDepthTexture(m_rp_depth_map[0].GetFBO());
+  m_shader_material[0].BindDepthTexture(m_rp_depth_map[0].GetTexture());
+  m_shader_material[0].BindDiffuseTexture(m_textures[0]);
+  m_shader_material[0].BindBlendTexture(m_textures[1]);
 
-  m_shader_material[0].SetUniforms(camera_position, m_light, model_vp,
-                                   model_light_vp, m_model_matrix);
-  m_shader_material[0].BindMaterialsBuffer(
-      m_rp_material[0].GetMaterialsBuffer());
-  m_rp_material[0].DrawVertices();
+  // m_shader_material[0].SetUniforms(camera_position, m_light, model_vp,
+  //                                  model_light_vp, m_model_matrix);
+  // m_shader_material[0].BindMaterialsBuffer(
+  //     m_rp_material[0].GetMaterialsBuffer());
+  // m_rp_material[0].DrawVertices();
 
-  m_shader_material[0].SetUniforms(camera_position, m_light, terrain_vp,
-                                   terrain_light_vp, m_terrain_matrix);
+  m_shader_material[0].SetUniforms(camera_position, m_light, m_tile_config,
+                                   terrain_vp, terrain_light_vp,
+                                   m_terrain_matrix);
   m_shader_material[0].BindMaterialsBuffer(
       m_rp_terrain[0].GetMaterialsBuffer());
   m_rp_terrain[0].DrawVertices();
@@ -220,7 +306,7 @@ void Game::Render() {
   m_shader_material[0].End();
 
   // draw shadow map to screen
-  // m_rp_tex[0].draw(m_rp_depth_map[0].GetFBO());
+  // m_rp_tex[0].draw(m_rp_depth_map[0].GetTexture());
 
   // 3d icons
   m_rp_icon[0].Draw(vp * glm::vec4(m_light.position, 1.0),
@@ -228,7 +314,7 @@ void Game::Render() {
   m_rp_icon[0].Draw(vp * glm::vec4(m_camera.target, 1.0),
                     glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
   m_game_timer.t_finish_draw_calls = SDL_GetPerformanceCounter();
-  RenderGui(m_game_timer, m_camera, m_light, m_model_matrix);
+  RenderGui(m_game_timer, m_camera, m_light, m_tile_config, m_model_matrix);
   m_game_timer.t_finish_gui_draw = SDL_GetPerformanceCounter();
   glFinish();
   m_game_timer.t_finish_render = SDL_GetPerformanceCounter();

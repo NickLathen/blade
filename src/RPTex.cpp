@@ -23,10 +23,10 @@ RPTex::RPTex()
                             (void *)(sizeof(float) * 3));
   m_vao.Unbind();
 };
-void RPTex::Draw(const FBO &fbo) const {
+void RPTex::Draw(const RPTexture &texture) const {
   m_shader.UseProgram();
   glActiveTexture(GL_TEXTURE0 + m_texture_binding);
-  fbo.BindTexture(GL_TEXTURE_2D);
+  texture.BindTexture(GL_TEXTURE_2D);
   m_vao.BindVertexArray();
   glDrawArrays(GL_TRIANGLES, 0, 3);
   m_vao.Unbind();
