@@ -21,7 +21,7 @@ Shader::Shader(const char *vertex_path, const char *frag_path) {
   glGetShaderiv(vertex_shader, GL_COMPILE_STATUS, &success);
   if (!success) {
     glGetShaderInfoLog(vertex_shader, kLogBufferSize, NULL, info_log);
-    throw std::runtime_error("ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n" +
+    throw std::runtime_error("ERROR::SHADER::VERTEX::COMPILATION_FAILED\n" +
                              std::string{info_log});
   }
   glShaderSource(frag_shader, 1, &frag_c_str, nullptr);

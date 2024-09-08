@@ -74,10 +74,10 @@ RPTexture LoadTexture(const std::string &path) {
 RPTexture NoiseTexture(int texture_size, float x_scale, float y_scale) {
   RPTexture texture{};
   texture.BindTexture(GL_TEXTURE_2D);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
-                  GL_LINEAR_MIPMAP_LINEAR);
+                  GL_LINEAR_MIPMAP_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
   int width = texture_size;
@@ -123,6 +123,10 @@ void RenderGui(const GameTimer &game_timer, Camera &camera, Light &light,
   ImGui::DragFloat("camera.near", &camera.near, 0.001f, 0.001f, 1.0f);
   ImGui::DragFloat("camera.far", &camera.far, 0.1f, 1.0f, 1000.0f);
 
+  ImGui::SliderFloat("tileConfig.height_scale", &tileConfig.height_scale, 0.0f,
+                     10.0f);
+  ImGui::SliderFloat("tileConfig.width_scale", &tileConfig.width_scale, 0.0f,
+                     1.0f);
   ImGui::SliderFloat("tileConfig.repeat_scale", &tileConfig.repeat_scale, 0.0f,
                      100.0f);
   ImGui::SliderFloat("tileConfig.rotation_scale", &tileConfig.rotation_scale,
@@ -181,6 +185,9 @@ Game::Game(Platform *platform) : m_platform{platform} {
       glm::rotate(glm::mat4(1.0f), -1.0f, glm::vec3(0.0, 1.0, 0.0));
   m_terrain_matrix = glm::mat4(1.0f);
   m_tile_config = {
+      .height_scale = 3.0f,
+      .width_scale = 0.1f,
+      .grid_scale = 256.0f,
       .repeat_scale = 75.0f,
       .rotation_scale = 100.0f,
       .translation_scale = 10.0f,
@@ -350,8 +357,7 @@ void Game::Render() {
   m_rp_terrain[0].DrawVertices();
   m_shader_terrain[0].End();
 
-  // draw shadow map to screen
-  // m_rp_tex[0].draw(m_rp_depth_map[0].GetTexture());
+  // draw shadow map to screen m_rp_tex[0].draw(m_rp_depth_map[0].GetTexture());
 
   // 3d icons
   m_rp_icon[0].Draw(vp * glm::vec4(m_light.position, 1.0),

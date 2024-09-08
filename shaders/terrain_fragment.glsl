@@ -1,9 +1,9 @@
 #version 300 es
 precision highp float;
 
-in vec3 normalDir;
 in vec3 worldPos;
 in vec2 texCoords;
+in vec2 terrainCoords;
 in vec4 lightSpacePosition;
 flat in uint materialIdx;
 out vec4 FragColor;
@@ -13,6 +13,8 @@ uniform sampler2D uDiffuseTexture;
 uniform sampler2D uBlendTexture;
 uniform sampler2D uNoiseTexture;
 
+
+uniform mat4 uModelMatrix;
 uniform vec3 uAmbientLightColor;
 uniform vec3 uLightDir;
 uniform vec3 uLightPos;
@@ -20,6 +22,8 @@ uniform vec3 uLightColor;
 uniform vec3 uCameraPos;
 uniform float uSpecularPower;
 uniform float uShininessScale;
+uniform float uHeightScale;
+uniform float uGridScale;
 uniform float uRepeatScale;
 uniform float uRotationScale;
 uniform float uTranslationScale;
@@ -126,10 +130,24 @@ vec4 TransformTexColor(vec4 color, vec2 texCoords) {
   return colorOut;
 }
 
+vec3 GetGradient(sampler2D tex, vec2 coords, float heightScale, float gridScale) {
+  float epsilon = 0.001f;
+  float heightCenter = texture(tex, terrainCoords).r * heightScale;
+  float heightRight  = texture(tex, terrainCoords + vec2(epsilon, 0.0)).r * heightScale;
+  float heightUp     = texture(tex, terrainCoords + vec2(0.0, epsilon)).r * heightScale;
+  float dy_dx = (heightRight - heightCenter) / (epsilon * gridScale);
+  float dy_dz = (heightUp - heightCenter) / (epsilon * gridScale);
+  return normalize(vec3(dy_dx, 1.0f, dy_dz));
+}
+
 void main() {
   Material material = uMaterial.materials[materialIdx];
-  vec3 nNormalDir = normalize(normalDir);
+
+  vec3 normalDir = GetGradient(uNoiseTexture, terrainCoords, uHeightScale, uGridScale);
+  normalDir = mat3(uModelMatrix) * normalDir;
+
   vec3 lightDir = normalize(uLightDir);
+  vec3 nNormalDir = normalize(normalDir);
 
   //diffuse lighting
   float diffuseFactor = dot(nNormalDir, lightDir);
@@ -153,7 +171,6 @@ void main() {
   vec3 litColor = diffuseColor * color.xyz +
                   specularFactor * uLightColor * material.specularColor;
   vec3 ambientColor = .1 * color.xyz;
-  float shadowFactor = CalcShadowFactor(lightSpacePosition, diffuseFactor);
-  color = vec4(ambientColor + (litColor * shadowFactor), 1.0f);
+  color = vec4(ambientColor + litColor, 1.0f);
   FragColor = color;
 };

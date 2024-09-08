@@ -3,7 +3,6 @@
 
 struct RPTerrainVertexBuffer {
   glm::vec3 position;
-  glm::vec3 normal;
   glm::vec2 tex_coords;
 };
 
@@ -29,8 +28,8 @@ RPTerrain::RPTerrain() {
   // y = sin(x) + cos(z)
   // dy/dx = cos(x)
   // dy/dz = -sin(z)
-  glm::vec2 x_range{-512.0, 512.0};
-  glm::vec2 z_range{-512.0, 512.0};
+  glm::vec2 x_range{-128.0, 128.0};
+  glm::vec2 z_range{-128.0, 128.0};
   uint width = 1024;
   uint depth = 1024;
   uint buffer_size = sizeof(RPTerrainVertexBuffer) * width * depth;
@@ -42,25 +41,9 @@ RPTerrain::RPTerrain() {
     for (uint j = 0; j < width; j++) {
       float x_coord = Rescale(x_range.x, x_range.y, j, 0, width);
       float z_coord = Rescale(z_range.x, z_range.y, i, 0, depth);
-      float epsilon = .0001;
-      float scale = 1.0f / 70.0f;
-      float perlin_x = (x_coord + 32.0) * scale * sin(.7);
-      float perlin_z = (z_coord + 32.0) * scale * -cos(.7);
-
-      float py = perlin.noise2D(perlin_x, perlin_z);
-      float pyx = perlin.noise2D(perlin_x + epsilon, perlin_z);
-      float pyz = perlin.noise2D(perlin_x, perlin_z + epsilon);
-      float y = 20.0f * py;
-
-      glm::vec3 position{x_coord, y - 5.0f, z_coord};
-
-      float dy_dx = (pyx - py) / epsilon;
-      float dy_dz = -(pyz - py) / epsilon;
-      glm::vec3 x_tangent{1.0, dy_dx, 0.0};
-      glm::vec3 y_tangent{0.0, dy_dz, 1.0};
-      glm::vec3 normal = glm::normalize(glm::cross(y_tangent, x_tangent));
+      glm::vec3 position{x_coord, 0.0f, z_coord};
       glm::vec2 tex_coords{1.0 * j / width, 1.0 * i / depth};
-      terrain_buffer[i * depth + j] = {position, normal, tex_coords};
+      terrain_buffer[i * depth + j] = {position, tex_coords};
     }
   }
   m_vbo.BufferData(buffer_size, terrain_buffer, GL_STATIC_DRAW);
@@ -94,9 +77,6 @@ RPTerrain::RPTerrain() {
                             (GLvoid *)0);
   m_vao.VertexAttribPointer(
       m_vbo, 1, 3, GL_FLOAT, GL_FALSE, stride,
-      (GLvoid *)(offsetof(RPTerrainVertexBuffer, normal)));
-  m_vao.VertexAttribPointer(
-      m_vbo, 2, 3, GL_FLOAT, GL_FALSE, stride,
       (GLvoid *)(offsetof(RPTerrainVertexBuffer, tex_coords)));
   glVertexAttribI4ui(3, 0, 0, 0, 0); // aMaterialIdx
   m_ebo.BindBuffer();

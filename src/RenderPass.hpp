@@ -24,6 +24,9 @@ struct Light {
 };
 
 struct TextureTileConfig {
+  float height_scale;
+  float width_scale;
+  float grid_scale;
   float repeat_scale;
   float rotation_scale;
   float translation_scale;
@@ -311,6 +314,9 @@ public:
     m_shader.Uniform1f("uSpecularPower", 32.0f);
     m_shader.Uniform1f("uShininessScale", 2000.0f);
 
+    m_shader.Uniform1f("uHeightScale", tileConfig.height_scale);
+    m_shader.Uniform1f("uWidthScale", tileConfig.width_scale);
+    m_shader.Uniform1f("uGridScale", tileConfig.grid_scale);
     m_shader.Uniform1f("uRepeatScale", tileConfig.repeat_scale);
     m_shader.Uniform1f("uRotationScale", tileConfig.rotation_scale);
     m_shader.Uniform1f("uTranslationScale", tileConfig.translation_scale);
