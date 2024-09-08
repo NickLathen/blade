@@ -127,6 +127,9 @@ void RenderGui(const GameTimer &game_timer, Camera &camera, Light &light,
                      10.0f);
   ImGui::SliderFloat("tileConfig.width_scale", &tileConfig.width_scale, 0.0f,
                      1.0f);
+  ImGui::SliderFloat("tileConfig.grid_scale", &tileConfig.grid_scale, 1.0f,
+                     1000.0f);
+  ImGui::SliderInt("tileConfig.resolution", &tileConfig.resolution, 512, 2048);
   ImGui::SliderFloat("tileConfig.repeat_scale", &tileConfig.repeat_scale, 0.0f,
                      100.0f);
   ImGui::SliderFloat("tileConfig.rotation_scale", &tileConfig.rotation_scale,
@@ -188,6 +191,7 @@ Game::Game(Platform *platform) : m_platform{platform} {
       .height_scale = 3.0f,
       .width_scale = 0.1f,
       .grid_scale = 256.0f,
+      .resolution = 1024,
       .repeat_scale = 75.0f,
       .rotation_scale = 100.0f,
       .translation_scale = 10.0f,
@@ -328,8 +332,8 @@ void Game::Render() {
   m_rp_depth_map[0].Begin();
   m_rp_depth_map[0].SetMVP(model_light_vp);
   m_rp_material[0].DrawVertices();
-  m_rp_depth_map[0].SetMVP(terrain_light_vp);
-  m_rp_terrain[0].DrawVertices();
+  // m_rp_depth_map[0].SetMVP(terrain_light_vp);
+  // m_rp_terrain[0].DrawVertices();
   m_rp_depth_map[0].End();
 
   // Draw Material
@@ -354,7 +358,7 @@ void Game::Render() {
                                   terrain_vp, terrain_light_vp,
                                   m_terrain_matrix);
   m_shader_terrain[0].BindMaterialsBuffer(m_rp_terrain[0].GetMaterialsBuffer());
-  m_rp_terrain[0].DrawVertices();
+  m_rp_terrain[0].DrawVertices(m_tile_config.resolution);
   m_shader_terrain[0].End();
 
   // draw shadow map to screen m_rp_tex[0].draw(m_rp_depth_map[0].GetTexture());

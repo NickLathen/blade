@@ -27,6 +27,7 @@ struct TextureTileConfig {
   float height_scale;
   float width_scale;
   float grid_scale;
+  int resolution;
   float repeat_scale;
   float rotation_scale;
   float translation_scale;
@@ -314,6 +315,7 @@ public:
     m_shader.Uniform1f("uSpecularPower", 32.0f);
     m_shader.Uniform1f("uShininessScale", 2000.0f);
 
+    m_shader.Uniform1i("uResolution", tileConfig.resolution);
     m_shader.Uniform1f("uHeightScale", tileConfig.height_scale);
     m_shader.Uniform1f("uWidthScale", tileConfig.width_scale);
     m_shader.Uniform1f("uGridScale", tileConfig.grid_scale);
@@ -418,18 +420,13 @@ public:
   RPTerrain();
   NEVER_COPY(RPTerrain);
   RPTerrain(RPTerrain &&other)
-      : m_vao{std::move(other.m_vao)}, m_vbo{std::move(other.m_vbo)},
-        m_ebo{std::move(other.m_ebo)}, m_ubo{std::move(other.m_ubo)},
-        m_num_elements{other.m_num_elements} {};
-  void DrawVertices() const;
+      : m_vao{std::move(other.m_vao)}, m_ubo{std::move(other.m_ubo)} {};
+  void DrawVertices(int num_vertices) const;
   const UBO &GetMaterialsBuffer() const { return m_ubo; };
 
 private:
   VAO m_vao;
-  VBO m_vbo;
-  EBO m_ebo;
   UBO m_ubo;
-  GLuint m_num_elements{0};
 };
 
 class RPIcon {

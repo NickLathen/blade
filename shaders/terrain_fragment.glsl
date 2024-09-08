@@ -23,6 +23,7 @@ uniform vec3 uCameraPos;
 uniform float uSpecularPower;
 uniform float uShininessScale;
 uniform float uHeightScale;
+uniform float uWidthScale;
 uniform float uGridScale;
 uniform float uRepeatScale;
 uniform float uRotationScale;
@@ -130,20 +131,20 @@ vec4 TransformTexColor(vec4 color, vec2 texCoords) {
   return colorOut;
 }
 
-vec3 GetGradient(sampler2D tex, vec2 coords, float heightScale, float gridScale) {
+vec3 GetGradient(sampler2D tex, vec2 coords, float heightScale, float widthScale, float gridScale) {
   float epsilon = 0.001f;
   float heightCenter = texture(tex, terrainCoords).r * heightScale;
   float heightRight  = texture(tex, terrainCoords + vec2(epsilon, 0.0)).r * heightScale;
   float heightUp     = texture(tex, terrainCoords + vec2(0.0, epsilon)).r * heightScale;
-  float dy_dx = (heightRight - heightCenter) / (epsilon * gridScale);
-  float dy_dz = (heightUp - heightCenter) / (epsilon * gridScale);
+  float dy_dx = (heightRight - heightCenter) * widthScale / (epsilon * gridScale);
+  float dy_dz = (heightUp - heightCenter) * widthScale / (epsilon * gridScale);
   return normalize(vec3(dy_dx, 1.0f, dy_dz));
 }
 
 void main() {
   Material material = uMaterial.materials[materialIdx];
 
-  vec3 normalDir = GetGradient(uNoiseTexture, terrainCoords, uHeightScale, uGridScale);
+  vec3 normalDir = GetGradient(uNoiseTexture, terrainCoords, uHeightScale, uWidthScale, uGridScale);
   normalDir = mat3(uModelMatrix) * normalDir;
 
   vec3 lightDir = normalize(uLightDir);
