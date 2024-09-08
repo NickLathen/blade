@@ -137,6 +137,11 @@ public:
     glBufferData(GL_UNIFORM_BUFFER, size, data, usage);
     Unbind();
   };
+  void BufferSubData(GLintptr offset, GLsizeiptr size, const void *data) const {
+    BindBuffer();
+    glBufferSubData(GL_UNIFORM_BUFFER, offset, size, data);
+    Unbind();
+  };
 
 private:
   GLuint m_ubo;
@@ -275,6 +280,10 @@ public:
                  "shaders/terrain_fragment.glsl"} {
     m_shader.UseProgram();
     m_shader.UniformBlockBinding("uMaterialBlock", m_material_block_binding);
+    m_shader.UniformBlockBinding("uTileConfigBlock",
+                                 m_tile_config_block_binding);
+    m_tile_config_ubo.BufferData(sizeof(TextureTileConfig), NULL,
+                                 GL_DYNAMIC_DRAW);
     m_shader.Uniform1i("uDepthTexture", m_depth_texture);
     m_shader.Uniform1i("uDiffuseTexture", m_diffuse_texture);
     m_shader.Uniform1i("uBlendTexture", m_blend_texture);
@@ -284,11 +293,13 @@ public:
   NEVER_COPY(RPTerrainShader);
   RPTerrainShader(RPTerrainShader &&other)
       : m_shader{std::move(other.m_shader)},
+        m_tile_config_ubo{std::move(other.m_tile_config_ubo)},
         m_depth_texture{other.m_depth_texture},
         m_diffuse_texture{other.m_diffuse_texture},
         m_blend_texture{other.m_blend_texture},
         m_noise_texture{other.m_noise_texture},
-        m_material_block_binding{other.m_material_block_binding} {};
+        m_material_block_binding{other.m_material_block_binding},
+        m_tile_config_block_binding{other.m_tile_config_block_binding} {};
   void Begin() {
     m_shader.UseProgram();
     glGetBooleanv(GL_DEPTH_TEST, &g_depth_test);
@@ -315,17 +326,8 @@ public:
     m_shader.Uniform1f("uSpecularPower", 32.0f);
     m_shader.Uniform1f("uShininessScale", 2000.0f);
 
-    m_shader.Uniform1i("uResolution", tileConfig.resolution);
-    m_shader.Uniform1f("uHeightScale", tileConfig.height_scale);
-    m_shader.Uniform1f("uWidthScale", tileConfig.width_scale);
-    m_shader.Uniform1f("uGridScale", tileConfig.grid_scale);
-    m_shader.Uniform1f("uRepeatScale", tileConfig.repeat_scale);
-    m_shader.Uniform1f("uRotationScale", tileConfig.rotation_scale);
-    m_shader.Uniform1f("uTranslationScale", tileConfig.translation_scale);
-    m_shader.Uniform1f("uNoiseScale", tileConfig.noise_scale);
-    m_shader.Uniform1f("uHueOffset", tileConfig.hue_scale);
-    m_shader.Uniform1f("uSaturation", tileConfig.saturation_scale);
-    m_shader.Uniform1f("uBrightness", tileConfig.brightness_scale);
+    m_tile_config_ubo.BufferSubData(0, sizeof(tileConfig), &tileConfig);
+    m_tile_config_ubo.BindBufferBase(m_tile_config_block_binding);
   }
   void BindMaterialsBuffer(const UBO &ubo) const {
     ubo.BindBufferBase(m_material_block_binding);
@@ -359,11 +361,14 @@ public:
 
 private:
   Shader m_shader;
+  UBO m_tile_config_ubo;
   const GLuint m_depth_texture{0};
   const GLuint m_diffuse_texture{1};
   const GLuint m_blend_texture{2};
   const GLuint m_noise_texture{3};
   const GLuint m_material_block_binding{0};
+  const GLuint m_tile_config_block_binding{1};
+
   GLboolean g_depth_test, g_cull_face;
   GLint g_cull_face_mode, g_front_face;
 };

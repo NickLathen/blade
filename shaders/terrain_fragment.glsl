@@ -22,16 +22,6 @@ uniform vec3 uLightColor;
 uniform vec3 uCameraPos;
 uniform float uSpecularPower;
 uniform float uShininessScale;
-uniform float uHeightScale;
-uniform float uWidthScale;
-uniform float uGridScale;
-uniform float uRepeatScale;
-uniform float uRotationScale;
-uniform float uTranslationScale;
-uniform float uNoiseScale;
-uniform float uSaturation;
-uniform float uHueOffset;
-uniform float uBrightness;
 
 //Materials UBO
 #define NUM_MATERIALS 256
@@ -44,6 +34,23 @@ struct Material {
 layout(std140) uniform uMaterialBlock {
   Material materials[NUM_MATERIALS];
 } uMaterial;
+
+struct TileConfig {
+  float height_scale;
+  float width_scale;
+  float grid_scale;
+  int resolution;
+  float repeat_scale;
+  float rotation_scale;
+  float translation_scale;
+  float noise_scale;
+  float hue_scale;
+  float saturation_scale;
+  float brightness_scale;
+};
+layout(std140) uniform uTileConfigBlock {
+  TileConfig tileConfig;
+} uTileConfig;
 
 float CalcShadowFactor(vec4 position, float diffuseFactor) {
   vec3 ProjCoords = position.xyz / position.w;
@@ -68,15 +75,15 @@ vec2 ScaleToCenter(vec2 coords, float scale) {
   return coords + (0.5f - coords) * scale;
 }
 
-vec2 TransformTexCoords(vec2 texCoords) {
-  vec2 scaledCoords = texCoords * uRepeatScale;
+vec2 TransformTexCoords(vec2 texCoords, TileConfig tc) {
+  vec2 scaledCoords = texCoords * tc.repeat_scale;
   vec2 tileCoords = floor(scaledCoords);
-  vec2 noiseCoords = tileCoords / uRepeatScale;
+  vec2 noiseCoords = tileCoords / tc.repeat_scale;
   noiseCoords = ScaleToCenter(noiseCoords, 0.5f);
   vec2 localCoords = scaledCoords - tileCoords;
-  float angle = SampleNoise((noiseCoords - 0.2f) * uNoiseScale) * uRotationScale;
-  float translationX = SampleNoise(noiseCoords * uNoiseScale) * uTranslationScale;
-  float translationY = SampleNoise((noiseCoords + 0.2f) * uNoiseScale) * uTranslationScale;
+  float angle = SampleNoise((noiseCoords - 0.2f) * tc.noise_scale) * tc.rotation_scale;
+  float translationX = SampleNoise(noiseCoords * tc.noise_scale) * tc.translation_scale;
+  float translationY = SampleNoise((noiseCoords + 0.2f) * tc.noise_scale) * tc.translation_scale;
   mat2 rotation = mat2(cos(angle), sin(angle), -sin(angle), cos(angle));
   vec2 rotatedCoords = rotation * (localCoords - 0.5) + 0.5;
   vec2 finalCoords = rotatedCoords + vec2(translationX, translationY);
@@ -117,7 +124,7 @@ vec4 AdjustBrightness(vec4 color, float brightness) {
   return vec4(clamp(adjustedColor, 0.0, 1.0), color.a);
 }
 
-vec4 TransformTexColor(vec4 color, vec2 texCoords) {
+vec4 TransformTexColor(vec4 color, vec2 texCoords, TileConfig tc) {
   vec2 noiseCoords = ScaleToCenter(texCoords, 0.5f);
   vec4 colorOut = color;
   float rHue = SampleNoise(noiseCoords + 0.1f);
@@ -125,9 +132,9 @@ vec4 TransformTexColor(vec4 color, vec2 texCoords) {
   float rSaturation = -SampleNoise(noiseCoords - 0.1f);
   //brightness -.5 to +.5
   float rBrightness = SampleNoise(noiseCoords + 0.2f) - 0.5f;
-  colorOut = AdjustHue(colorOut, uHueOffset * rHue);
-  colorOut = AdjustSaturation(colorOut, clamp(1.0f + uSaturation * rSaturation, 0.0, 1.0));
-  colorOut = AdjustBrightness(colorOut, 1.0f + uBrightness * rBrightness);
+  colorOut = AdjustHue(colorOut, tc.hue_scale * rHue);
+  colorOut = AdjustSaturation(colorOut, clamp(1.0f + tc.saturation_scale * rSaturation, 0.0, 1.0));
+  colorOut = AdjustBrightness(colorOut, 1.0f + tc.brightness_scale * rBrightness);
   return colorOut;
 }
 
@@ -142,9 +149,10 @@ vec3 GetGradient(sampler2D tex, vec2 coords, float heightScale, float widthScale
 }
 
 void main() {
+  TileConfig tc = uTileConfig.tileConfig;
   Material material = uMaterial.materials[materialIdx];
 
-  vec3 normalDir = GetGradient(uNoiseTexture, terrainCoords, uHeightScale, uWidthScale, uGridScale);
+  vec3 normalDir = GetGradient(uNoiseTexture, terrainCoords, tc.height_scale, tc.width_scale, tc.grid_scale);
   normalDir = mat3(uModelMatrix) * normalDir;
 
   vec3 lightDir = normalize(uLightDir);
@@ -162,13 +170,13 @@ void main() {
   float specularFactor = max(dot(reflectDir, -viewDir), 0.0);
   specularFactor = pow(specularFactor, uSpecularPower) * shininess;
   
-  vec2 transformedCoords = TransformTexCoords(texCoords);
+  vec2 transformedCoords = TransformTexCoords(texCoords, tc);
   vec2 noiseCoords = ScaleToCenter(texCoords, 0.5f);
   vec4 color = mix(texture(uDiffuseTexture, transformedCoords),
                    texture(uBlendTexture, transformedCoords),
                    SampleNoise(noiseCoords - 0.25f)
                   );
-  color = TransformTexColor(color, texCoords);
+  color = TransformTexColor(color, texCoords, tc);
   vec3 litColor = diffuseColor * color.xyz +
                   specularFactor * uLightColor * material.specularColor;
   vec3 ambientColor = .1 * color.xyz;
