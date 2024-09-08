@@ -13,7 +13,6 @@ uniform sampler2D uDiffuseTexture;
 uniform sampler2D uBlendTexture;
 uniform sampler2D uNoiseTexture;
 
-
 uniform mat4 uModelMatrix;
 uniform vec3 uAmbientLightColor;
 uniform vec3 uLightDir;
@@ -61,10 +60,19 @@ float CalcShadowFactor(vec4 position, float diffuseFactor) {
   if (UVCoords.z < 0.0 || UVCoords.x < 0.0 || UVCoords.x > 1.0 || UVCoords.y < 0.0 || UVCoords.y > 1.0) {
     return 1.0;
   }
-  float bias = mix(0.0001, 0.001, clamp(abs(diffuseFactor), 0.0, 1.0));
+  float bias = mix(0.0005, 0.002, clamp(abs(diffuseFactor), 0.0, 1.0));
   UVCoords.z -= bias;
-  float Depth = texture(uDepthTexture, UVCoords);
-  return 0.5 + (Depth * 0.5f);
+  float shadowFactor = 0.0;
+  float texelSize = 1.0 / float(textureSize(uDepthTexture, 0));
+  for (int y = -1 ; y <= 1 ; y++) {
+    for (int x = -1 ; x <= 1 ; x++) {
+      vec3 offset = vec3(float(x) * texelSize,
+                          float(y) * texelSize,
+                          0.0f);
+      shadowFactor += texture(uDepthTexture, UVCoords + offset);
+    }
+  }
+  return (0.5 + (shadowFactor / 18.0));
 }
 
 float SampleNoise(vec2 st) {
@@ -158,28 +166,35 @@ void main() {
   vec3 lightDir = normalize(uLightDir);
   vec3 nNormalDir = normalize(normalDir);
 
-  //diffuse lighting
+  //lighting variables
   float diffuseFactor = dot(nNormalDir, lightDir);
   vec3 diffuseColor = max(diffuseFactor, 0.0) *
                       uLightColor;
-
-  //specular lighting
   vec3 reflectDir = normalize(reflect(-lightDir, nNormalDir));
   vec3 viewDir = normalize(worldPos - uCameraPos);
   float shininess = material.shininess / uShininessScale;
   float specularFactor = max(dot(reflectDir, -viewDir), 0.0);
   specularFactor = pow(specularFactor, uSpecularPower) * shininess;
   
+  //apply texture scaling/displacement
   vec2 transformedCoords = TransformTexCoords(texCoords, tc);
   vec2 noiseCoords = ScaleToCenter(texCoords, 0.5f);
+  //apply texture blending
   vec4 color = mix(texture(uDiffuseTexture, transformedCoords),
                    texture(uBlendTexture, transformedCoords),
                    SampleNoise(noiseCoords - 0.25f)
                   );
+  //apply texture color variation
   color = TransformTexColor(color, texCoords, tc);
+  //apply lighting
+  vec3 ambientColor = uAmbientLightColor * material.ambientColor * color.xyz;
   vec3 litColor = diffuseColor * color.xyz +
                   specularFactor * uLightColor * material.specularColor;
-  vec3 ambientColor = .1 * color.xyz;
+  //apply shadows
+  if (diffuseFactor > 0.0f) {
+    float shadowFactor = CalcShadowFactor(lightSpacePosition, abs(diffuseFactor));
+    litColor *= shadowFactor;
+  }
   color = vec4(ambientColor + litColor, 1.0f);
   FragColor = color;
 };

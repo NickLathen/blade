@@ -43,8 +43,17 @@ float CalcShadowFactor(vec4 position, float diffuseFactor) {
   }
   float bias = mix(0.0001, 0.001, clamp(abs(diffuseFactor), 0.0, 1.0));
   UVCoords.z -= bias;
-  float Depth = texture(uDepthTexture, UVCoords);
-  return 0.5 + (Depth * 0.5f);
+  float shadowFactor = 0.0;
+  float texelSize = 1.0 / float(textureSize(uDepthTexture, 0));
+  for (int y = -1 ; y <= 1 ; y++) {
+    for (int x = -1 ; x <= 1 ; x++) {
+      vec3 offset = vec3(float(x) * texelSize,
+                          float(y) * texelSize,
+                          0.0f);
+      shadowFactor += texture(uDepthTexture, UVCoords + offset);
+    }
+  }
+  return (0.5 + (shadowFactor / 18.0));
 }
 
 void main() {
@@ -65,9 +74,9 @@ void main() {
   specularFactor = pow(specularFactor, uSpecularPower) * shininess;
   
   vec3 materialColor = material.diffuseColor;
+  vec3 ambientColor = uAmbientLightColor * material.ambientColor * materialColor;
   vec3 litColor = diffuseColor * materialColor +
                   specularFactor * uLightColor * material.specularColor;
-  vec3 ambientColor = 0.1f * materialColor;
   if (diffuseFactor > 0.0f) {
     float shadowFactor = CalcShadowFactor(lightSpacePosition, abs(diffuseFactor));
     litColor *= shadowFactor;

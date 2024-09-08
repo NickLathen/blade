@@ -196,17 +196,23 @@ private:
 class RPMaterialShader {
 public:
   RPMaterialShader()
-      : m_shader{"shaders/vertex.glsl", "shaders/fragment.glsl"} {
+      : m_shader{"shaders/vertex.glsl", "shaders/fragment.glsl"},
+        m_depth_shader{"shaders/vertex.glsl",
+                       "shaders/depth_map_fragment.glsl"} {
     m_shader.UseProgram();
     m_shader.UniformBlockBinding("uMaterialBlock", m_material_block_binding);
     m_shader.Uniform1i("uDepthTexture", m_depth_texture);
     m_shader.Uniform1i("uDiffuseTexture", m_diffuse_texture);
     m_shader.Uniform1i("uNoiseTexture", m_noise_texture);
+
+    m_depth_shader.UseProgram();
+    m_depth_shader.Uniform1i("uNoiseTexture", m_noise_texture);
     glUseProgram(0);
   };
   NEVER_COPY(RPMaterialShader);
   RPMaterialShader(RPMaterialShader &&other)
       : m_shader{std::move(other.m_shader)},
+        m_depth_shader{std::move(other.m_depth_shader)},
         m_depth_texture{other.m_depth_texture},
         m_diffuse_texture{other.m_diffuse_texture},
         m_noise_texture{other.m_noise_texture},
@@ -222,6 +228,8 @@ public:
     glCullFace(GL_BACK);
     glFrontFace(GL_CCW);
   }
+  void BeginDepth() { m_depth_shader.UseProgram(); }
+  void EndDepth() { glUseProgram(0); }
   void SetUniforms(const glm::vec3 &camera_pos, const Light &light,
                    const glm::mat4 &mvp, const glm::mat4 &light_mvp,
                    const glm::mat4 &model_matrix) const {
@@ -235,6 +243,12 @@ public:
     m_shader.UniformMatrix4fv("uModelMatrix", GL_FALSE, model_matrix);
     m_shader.Uniform1f("uSpecularPower", 32.0f);
     m_shader.Uniform1f("uShininessScale", 2000.0f);
+  }
+  void SetDepthUniforms(const glm::mat4 &mvp, const glm::mat4 &light_mvp,
+                        const glm::mat4 &model_matrix) const {
+    m_depth_shader.UniformMatrix4fv("uMVP", GL_FALSE, mvp);
+    m_depth_shader.UniformMatrix4fv("uLightMVP", GL_FALSE, light_mvp);
+    m_depth_shader.UniformMatrix4fv("uModelMatrix", GL_FALSE, model_matrix);
   }
   void BindMaterialsBuffer(const UBO &ubo) const {
     ubo.BindBufferBase(m_material_block_binding);
@@ -265,6 +279,7 @@ public:
 
 private:
   Shader m_shader;
+  Shader m_depth_shader;
   const GLuint m_depth_texture{0};
   const GLuint m_diffuse_texture{1};
   const GLuint m_noise_texture{2};
@@ -277,7 +292,9 @@ class RPTerrainShader {
 public:
   RPTerrainShader()
       : m_shader{"shaders/terrain_vertex.glsl",
-                 "shaders/terrain_fragment.glsl"} {
+                 "shaders/terrain_fragment.glsl"},
+        m_depth_shader{"shaders/terrain_vertex.glsl",
+                       "shaders/depth_map_fragment.glsl"} {
     m_shader.UseProgram();
     m_shader.UniformBlockBinding("uMaterialBlock", m_material_block_binding);
     m_shader.UniformBlockBinding("uTileConfigBlock",
@@ -289,10 +306,19 @@ public:
     m_shader.Uniform1i("uBlendTexture", m_blend_texture);
     m_shader.Uniform1i("uNoiseTexture", m_noise_texture);
     glUseProgram(0);
+
+    m_depth_shader.UseProgram();
+    m_depth_shader.UniformBlockBinding("uTileConfigBlock",
+                                       m_tile_config_block_binding);
+    m_tile_config_ubo.BufferData(sizeof(TextureTileConfig), NULL,
+                                 GL_DYNAMIC_DRAW);
+    m_depth_shader.Uniform1i("uNoiseTexture", m_noise_texture);
+    glUseProgram(0);
   };
   NEVER_COPY(RPTerrainShader);
   RPTerrainShader(RPTerrainShader &&other)
       : m_shader{std::move(other.m_shader)},
+        m_depth_shader{std::move(other.m_depth_shader)},
         m_tile_config_ubo{std::move(other.m_tile_config_ubo)},
         m_depth_texture{other.m_depth_texture},
         m_diffuse_texture{other.m_diffuse_texture},
@@ -311,6 +337,17 @@ public:
     glCullFace(GL_BACK);
     glFrontFace(GL_CCW);
   }
+  void End() {
+    if (g_depth_test == GL_FALSE)
+      glDisable(GL_DEPTH_TEST);
+    if (g_cull_face == GL_FALSE)
+      glDisable(GL_CULL_FACE);
+    glCullFace(g_cull_face_mode);
+    glFrontFace(g_front_face);
+    glUseProgram(0);
+  }
+  void BeginDepth() { m_depth_shader.UseProgram(); }
+  void EndDepth() { glUseProgram(0); }
   void SetUniforms(const glm::vec3 &camera_pos, const Light &light,
                    const TextureTileConfig &tileConfig, const glm::mat4 &mvp,
                    const glm::mat4 &light_mvp,
@@ -329,6 +366,13 @@ public:
     m_tile_config_ubo.BufferSubData(0, sizeof(tileConfig), &tileConfig);
     m_tile_config_ubo.BindBufferBase(m_tile_config_block_binding);
   }
+  void SetDepthUniforms(const TextureTileConfig &tileConfig,
+                        const glm::mat4 &mvp, const glm::mat4 &model_matrix) {
+    m_depth_shader.UniformMatrix4fv("uMVP", GL_FALSE, mvp);
+    m_depth_shader.UniformMatrix4fv("uModelMatrix", GL_FALSE, model_matrix);
+    m_tile_config_ubo.BufferSubData(0, sizeof(tileConfig), &tileConfig);
+    m_tile_config_ubo.BindBufferBase(m_tile_config_block_binding);
+  };
   void BindMaterialsBuffer(const UBO &ubo) const {
     ubo.BindBufferBase(m_material_block_binding);
   }
@@ -349,18 +393,10 @@ public:
   void BindNoiseTexture(const RPTexture &texture) const {
     BindTexture(texture, m_noise_texture);
   }
-  void End() {
-    if (g_depth_test == GL_FALSE)
-      glDisable(GL_DEPTH_TEST);
-    if (g_cull_face == GL_FALSE)
-      glDisable(GL_CULL_FACE);
-    glCullFace(g_cull_face_mode);
-    glFrontFace(g_front_face);
-    glUseProgram(0);
-  }
 
 private:
   Shader m_shader;
+  Shader m_depth_shader;
   UBO m_tile_config_ubo;
   const GLuint m_depth_texture{0};
   const GLuint m_diffuse_texture{1};
@@ -400,24 +436,21 @@ public:
   RPDepthMap(GLuint texture_size);
   NEVER_COPY(RPDepthMap);
   RPDepthMap(RPDepthMap &&other)
-      : m_shader{std::move(other.m_shader)}, m_fbo{std::move(other.m_fbo)},
-        m_texture{std::move(other.m_texture)},
+      : m_fbo{std::move(other.m_fbo)}, m_texture{std::move(other.m_texture)},
         m_texture_size{other.m_texture_size}, g_vp{other.g_vp},
         g_depth_test{other.g_depth_test}, g_cull_face{other.g_cull_face} {};
   glm::mat4 GetProjection() const;
   void Begin();
-  void SetMVP(const glm::mat4 &mvp);
   void End();
   const RPTexture &GetTexture() const;
 
 private:
-  Shader m_shader;
   FBO m_fbo;
   RPTexture m_texture;
   GLuint m_texture_size{0};
   glm::ivec4 g_vp{};
-  GLboolean g_depth_test;
-  GLboolean g_cull_face;
+  GLboolean g_depth_test, g_cull_face;
+  GLint g_cull_face_mode, g_front_face;
 };
 
 class RPTerrain {

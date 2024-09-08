@@ -6,10 +6,7 @@
 #include <glm/glm.hpp>
 #include <stdio.h>
 
-RPDepthMap::RPDepthMap(GLuint texture_size)
-    : m_shader{"shaders/depth_map_vertex.glsl",
-               "shaders/depth_map_fragment.glsl"},
-      m_texture_size{texture_size} {
+RPDepthMap::RPDepthMap(GLuint texture_size) : m_texture_size{texture_size} {
   m_texture.BindTexture(GL_TEXTURE_2D);
   glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32F, m_texture_size,
                m_texture_size, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
@@ -35,34 +32,34 @@ RPDepthMap::RPDepthMap(GLuint texture_size)
 
 glm::mat4 RPDepthMap::GetProjection() const {
   // return glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 100.0f);
-  float scale = 5.0f;
-  return glm::ortho(-scale, scale, -scale, scale, .01f, 60.0f);
+  float scale = 50.0f;
+  return glm::ortho(-scale, scale, -scale, scale, .01f, 250.0f);
 }
 
 void RPDepthMap::Begin() {
+  m_fbo.BindFramebuffer(GL_DRAW_FRAMEBUFFER);
+  glClear(GL_DEPTH_BUFFER_BIT);
   glGetIntegerv(GL_VIEWPORT, &g_vp[0]);
   glGetBooleanv(GL_DEPTH_TEST, &g_depth_test);
   glGetBooleanv(GL_CULL_FACE, &g_cull_face);
+  glGetIntegerv(GL_CULL_FACE_MODE, &g_cull_face_mode);
+  glGetIntegerv(GL_FRONT_FACE, &g_front_face);
   glEnable(GL_DEPTH_TEST);
   glDisable(GL_CULL_FACE);
+  glCullFace(GL_FRONT);
+  glFrontFace(GL_CCW);
   glViewport(0, 0, m_texture_size, m_texture_size);
-  m_fbo.BindFramebuffer(GL_DRAW_FRAMEBUFFER);
-  glClear(GL_DEPTH_BUFFER_BIT);
-  m_shader.UseProgram();
 };
 
-void RPDepthMap::SetMVP(const glm::mat4 &mvp) {
-  m_shader.UniformMatrix4fv("uMVP", GL_FALSE, mvp);
-}
-
 void RPDepthMap::End() {
-  glUseProgram(0);
   m_fbo.UnbindFramebuffer(GL_DRAW_FRAMEBUFFER);
   glViewport(g_vp[0], g_vp[1], g_vp[2], g_vp[3]);
   if (g_depth_test == GL_FALSE)
     glDisable(GL_DEPTH_TEST);
-  if (g_cull_face == GL_TRUE)
-    glEnable(GL_CULL_FACE);
+  if (g_cull_face == GL_FALSE)
+    glDisable(GL_CULL_FACE);
+  glCullFace(g_cull_face_mode);
+  glFrontFace(g_front_face);
 };
 
 const RPTexture &RPDepthMap::GetTexture() const { return m_texture; };
