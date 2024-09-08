@@ -159,6 +159,7 @@ Game::Game(Platform *platform) : m_platform{platform} {
   m_rp_icon.emplace_back();
   m_rp_terrain.emplace_back();
   m_shader_material.emplace_back();
+  m_shader_terrain.emplace_back();
   m_light = {.ambient_color = {1.0f, 1.0f, 1.0f},
              .direction = {glm::normalize(glm::vec3(-0.2f, 1.0f, 0.2f))},
              .position = {-1.0f, 1.0f, 0.5f},
@@ -305,7 +306,7 @@ void Game::Render() {
                        m_camera.near, m_camera.far);
   // glm::ortho(-3.0f, 3.0f, -3.0f, 3.0f, m_camera.near, m_camera.far);
   glm::mat4 vp = camera_projection * m_camera.transform;
-  // glm::mat4 model_vp = vp * m_model_matrix;
+  glm::mat4 model_vp = vp * m_model_matrix;
   glm::mat4 terrain_vp = vp * m_terrain_matrix;
 
   glm::mat4 light_transform =
@@ -324,28 +325,30 @@ void Game::Render() {
   m_rp_terrain[0].DrawVertices();
   m_rp_depth_map[0].End();
 
-  // draw pass
+  // Draw Material
   m_shader_material[0].Begin();
-
   m_shader_material[0].BindDepthTexture(m_rp_depth_map[0].GetTexture());
   m_shader_material[0].BindDiffuseTexture(m_textures[0]);
-  m_shader_material[0].BindBlendTexture(m_textures[1]);
   m_shader_material[0].BindNoiseTexture(m_textures[2]);
-
-  // m_shader_material[0].SetUniforms(camera_position, m_light, model_vp,
-  //                                  model_light_vp, m_model_matrix);
-  // m_shader_material[0].BindMaterialsBuffer(
-  //     m_rp_material[0].GetMaterialsBuffer());
-  // m_rp_material[0].DrawVertices();
-
-  m_shader_material[0].SetUniforms(camera_position, m_light, m_tile_config,
-                                   terrain_vp, terrain_light_vp,
-                                   m_terrain_matrix);
   m_shader_material[0].BindMaterialsBuffer(
-      m_rp_terrain[0].GetMaterialsBuffer());
-  m_rp_terrain[0].DrawVertices();
-
+      m_rp_material[0].GetMaterialsBuffer());
+  m_shader_material[0].SetUniforms(camera_position, m_light, model_vp,
+                                   model_light_vp, m_model_matrix);
+  m_rp_material[0].DrawVertices();
   m_shader_material[0].End();
+
+  // Draw Terrain
+  m_shader_terrain[0].Begin();
+  m_shader_terrain[0].BindDiffuseTexture(m_textures[0]);
+  m_shader_terrain[0].BindBlendTexture(m_textures[1]);
+  m_shader_terrain[0].BindNoiseTexture(m_textures[2]);
+  m_shader_terrain[0].BindDepthTexture(m_rp_depth_map[0].GetTexture());
+  m_shader_terrain[0].SetUniforms(camera_position, m_light, m_tile_config,
+                                  terrain_vp, terrain_light_vp,
+                                  m_terrain_matrix);
+  m_shader_terrain[0].BindMaterialsBuffer(m_rp_terrain[0].GetMaterialsBuffer());
+  m_rp_terrain[0].DrawVertices();
+  m_shader_terrain[0].End();
 
   // draw shadow map to screen
   // m_rp_tex[0].draw(m_rp_depth_map[0].GetTexture());

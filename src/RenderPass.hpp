@@ -192,7 +192,6 @@ public:
     m_shader.UniformBlockBinding("uMaterialBlock", m_material_block_binding);
     m_shader.Uniform1i("uDepthTexture", m_depth_texture);
     m_shader.Uniform1i("uDiffuseTexture", m_diffuse_texture);
-    m_shader.Uniform1i("uBlendTexture", m_blend_texture);
     m_shader.Uniform1i("uNoiseTexture", m_noise_texture);
     glUseProgram(0);
   };
@@ -201,10 +200,93 @@ public:
       : m_shader{std::move(other.m_shader)},
         m_depth_texture{other.m_depth_texture},
         m_diffuse_texture{other.m_diffuse_texture},
+        m_noise_texture{other.m_noise_texture},
+        m_material_block_binding{other.m_material_block_binding} {};
+  void Begin() {
+    m_shader.UseProgram();
+    glGetBooleanv(GL_DEPTH_TEST, &g_depth_test);
+    glGetBooleanv(GL_CULL_FACE, &g_cull_face);
+    glGetIntegerv(GL_CULL_FACE_MODE, &g_cull_face_mode);
+    glGetIntegerv(GL_FRONT_FACE, &g_front_face);
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
+    glFrontFace(GL_CCW);
+  }
+  void SetUniforms(const glm::vec3 &camera_pos, const Light &light,
+                   const glm::mat4 &mvp, const glm::mat4 &light_mvp,
+                   const glm::mat4 &model_matrix) const {
+    m_shader.Uniform3fv("uCameraPos", camera_pos);
+    m_shader.Uniform3fv("uAmbientLightColor", light.ambient_color);
+    m_shader.Uniform3fv("uLightDir", light.direction);
+    m_shader.Uniform3fv("uLightColor", light.diffuse_color);
+    m_shader.Uniform3fv("uLightPos", light.position);
+    m_shader.UniformMatrix4fv("uMVP", GL_FALSE, mvp);
+    m_shader.UniformMatrix4fv("uLightMVP", GL_FALSE, light_mvp);
+    m_shader.UniformMatrix4fv("uModelMatrix", GL_FALSE, model_matrix);
+    m_shader.Uniform1f("uSpecularPower", 32.0f);
+    m_shader.Uniform1f("uShininessScale", 2000.0f);
+  }
+  void BindMaterialsBuffer(const UBO &ubo) const {
+    ubo.BindBufferBase(m_material_block_binding);
+  }
+  void BindTexture(const RPTexture &texture,
+                   const GLuint texture_location) const {
+    glActiveTexture(GL_TEXTURE0 + texture_location);
+    texture.BindTexture(GL_TEXTURE_2D);
+  }
+  void BindDepthTexture(const RPTexture &texture) const {
+    BindTexture(texture, m_depth_texture);
+  }
+  void BindDiffuseTexture(const RPTexture &texture) const {
+    BindTexture(texture, m_diffuse_texture);
+  }
+  void BindNoiseTexture(const RPTexture &texture) const {
+    BindTexture(texture, m_noise_texture);
+  }
+  void End() {
+    if (g_depth_test == GL_FALSE)
+      glDisable(GL_DEPTH_TEST);
+    if (g_cull_face == GL_FALSE)
+      glDisable(GL_CULL_FACE);
+    glCullFace(g_cull_face_mode);
+    glFrontFace(g_front_face);
+    glUseProgram(0);
+  }
+
+private:
+  Shader m_shader;
+  const GLuint m_depth_texture{0};
+  const GLuint m_diffuse_texture{1};
+  const GLuint m_noise_texture{2};
+  const GLuint m_material_block_binding{0};
+  GLboolean g_depth_test, g_cull_face;
+  GLint g_cull_face_mode, g_front_face;
+};
+
+class RPTerrainShader {
+public:
+  RPTerrainShader()
+      : m_shader{"shaders/terrain_vertex.glsl",
+                 "shaders/terrain_fragment.glsl"} {
+    m_shader.UseProgram();
+    m_shader.UniformBlockBinding("uMaterialBlock", m_material_block_binding);
+    m_shader.Uniform1i("uDepthTexture", m_depth_texture);
+    m_shader.Uniform1i("uDiffuseTexture", m_diffuse_texture);
+    m_shader.Uniform1i("uBlendTexture", m_blend_texture);
+    m_shader.Uniform1i("uNoiseTexture", m_noise_texture);
+    glUseProgram(0);
+  };
+  NEVER_COPY(RPTerrainShader);
+  RPTerrainShader(RPTerrainShader &&other)
+      : m_shader{std::move(other.m_shader)},
+        m_depth_texture{other.m_depth_texture},
+        m_diffuse_texture{other.m_diffuse_texture},
         m_blend_texture{other.m_blend_texture},
         m_noise_texture{other.m_noise_texture},
         m_material_block_binding{other.m_material_block_binding} {};
   void Begin() {
+    m_shader.UseProgram();
     glGetBooleanv(GL_DEPTH_TEST, &g_depth_test);
     glGetBooleanv(GL_CULL_FACE, &g_cull_face);
     glGetIntegerv(GL_CULL_FACE_MODE, &g_cull_face_mode);
@@ -218,7 +300,6 @@ public:
                    const TextureTileConfig &tileConfig, const glm::mat4 &mvp,
                    const glm::mat4 &light_mvp,
                    const glm::mat4 &model_matrix) const {
-    m_shader.UseProgram();
     m_shader.Uniform3fv("uCameraPos", camera_pos);
     m_shader.Uniform3fv("uAmbientLightColor", light.ambient_color);
     m_shader.Uniform3fv("uLightDir", light.direction);
@@ -265,6 +346,7 @@ public:
       glDisable(GL_CULL_FACE);
     glCullFace(g_cull_face_mode);
     glFrontFace(g_front_face);
+    glUseProgram(0);
   }
 
 private:

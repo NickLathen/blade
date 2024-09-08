@@ -39,6 +39,7 @@ private:
   std::vector<RPIcon> m_rp_icon{};
   std::vector<RPTerrain> m_rp_terrain{};
   std::vector<RPMaterialShader> m_shader_material{};
+  std::vector<RPTerrainShader> m_shader_terrain{};
   std::vector<RPTexture> m_textures{};
   GameTimer m_game_timer{};
 };
