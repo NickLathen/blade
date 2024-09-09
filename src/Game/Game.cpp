@@ -129,7 +129,8 @@ enum FILTER_DIRECTION { FD_UP, FD_DOWN, FD_LEFT, FD_RIGHT } filterDirection;
 
 void FIRFilter(std::vector<float> &buffer, float factor,
                FILTER_DIRECTION direction, int height, int width) {
-  if (direction == FD_RIGHT) {
+  switch (direction) {
+  case (FD_RIGHT): {
     for (int i = 0; i < height; i++) {
       int rowOffset = i * width;
       for (int j = 1; j < width; j++) {
@@ -137,7 +138,9 @@ void FIRFilter(std::vector<float> &buffer, float factor,
             Lerp(buffer[(j - 1) + rowOffset], buffer[j + rowOffset], factor);
       }
     }
-  } else if (direction == FD_LEFT) {
+    break;
+  }
+  case (FD_LEFT): {
     for (int i = 0; i < height; i++) {
       int rowOffset = i * width;
       for (int j = width - 2; j >= 0; j--) {
@@ -145,7 +148,9 @@ void FIRFilter(std::vector<float> &buffer, float factor,
             Lerp(buffer[(j + 1) + rowOffset], buffer[j + rowOffset], factor);
       }
     }
-  } else if (direction == FD_UP) {
+    break;
+  }
+  case (FD_UP): {
     for (int j = 0; j < width; j++) {
       for (int i = 1; i < height; i++) {
         int rowOffset = i * width;
@@ -154,13 +159,42 @@ void FIRFilter(std::vector<float> &buffer, float factor,
             Lerp(buffer[j + prevRowOffset], buffer[j + rowOffset], factor);
       }
     }
-  } else if (direction == FD_DOWN) {
+    break;
+  }
+  case (FD_DOWN): {
     for (int j = 0; j < width; j++) {
       for (int i = height - 2; i >= 0; i--) {
         int rowOffset = i * width;
         int prevRowOffset = (i + 1) * width;
         buffer[j + rowOffset] =
             Lerp(buffer[j + prevRowOffset], buffer[j + rowOffset], factor);
+      }
+    }
+    break;
+  }
+  }
+}
+
+void FaultFormation(std::vector<float> &buffer, int texture_size,
+                    float min_height, float max_height, int gen_iterations) {
+  std::random_device rd;
+  std::mt19937 gen(rd());
+  std::uniform_int_distribution<> distrib(0, texture_size - 1);
+
+  float delta_height = max_height - min_height;
+  for (int i = 0; i < gen_iterations; i++) {
+    float i_frac = float(i) / float(gen_iterations);
+    float height = max_height - i_frac * delta_height;
+    glm::ivec2 p1{distrib(gen), distrib(gen)};
+    glm::ivec2 p2{distrib(gen), distrib(gen)};
+    glm::ivec2 dir{p2 - p1};
+    for (int y = 0; y < texture_size; y++) {
+      for (int x = 0; x < texture_size; x++) {
+        glm::ivec2 dir_in{x - p1.x, y - p1.y};
+        int cross_product = dir_in.x * dir.y - dir.x * dir_in.y;
+        if (cross_product > 0) {
+          buffer[x + y * texture_size] += height;
+        }
       }
     }
   }
@@ -179,29 +213,14 @@ RPTexture HeightmapTexture(int texture_size, float min_height, float max_height,
 
   std::vector<float> heightmap_buffer(texture_size * texture_size);
 
-  // FaultFormationTerrain
-  std::random_device rd;
-  std::mt19937 gen(rd());
-  std::uniform_int_distribution<> distrib(0, texture_size - 1);
+  // Generate
+  FaultFormation(heightmap_buffer, texture_size, min_height, max_height,
+                 gen_iterations);
 
-  float delta_height = max_height - min_height;
-  for (int i = 0; i < gen_iterations; i++) {
-    float i_frac = float(i) / float(gen_iterations);
-    float height = max_height - i_frac * delta_height;
-    glm::ivec2 p1{distrib(gen), distrib(gen)};
-    glm::ivec2 p2{distrib(gen), distrib(gen)};
-    glm::ivec2 dir{p2 - p1};
-    for (int y = 0; y < texture_size; y++) {
-      for (int x = 0; x < texture_size; x++) {
-        glm::ivec2 dir_in{x - p1.x, y - p1.y};
-        int cross_product = dir_in.x * dir.y - dir.x * dir_in.y;
-        if (cross_product > 0) {
-          heightmap_buffer[x + y * texture_size] += height;
-        }
-      }
-    }
-  }
+  // Normalize
   MapToRange(heightmap_buffer, 0, 1.0);
+
+  // Smooth
   for (int i = 0; i < smooth_iterations; i++) {
     FIRFilter(heightmap_buffer, smooth_factor, FD_UP, texture_size,
               texture_size);
@@ -212,6 +231,7 @@ RPTexture HeightmapTexture(int texture_size, float min_height, float max_height,
     FIRFilter(heightmap_buffer, smooth_factor, FD_RIGHT, texture_size,
               texture_size);
   }
+
   glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, texture_size, texture_size, 0, GL_RED,
                GL_FLOAT, &heightmap_buffer[0]);
   glGenerateMipmap(GL_TEXTURE_2D);
@@ -231,8 +251,11 @@ void RenderGui(const GameTimer &game_timer, Camera &camera, Light &light,
                     5.0f);
   ImGui::DragFloat4("uModelMatrix[3]", &model_matrix[3][0], .01f, -5.0f, 5.0f);
   ImGui::DragFloat3("camera.target", &camera.target[0], .01f, -10.0, 10.0f);
-  ImGui::DragFloat3("light.uLightDir", &light.direction[0], .01f, -10.0f,
+  ImGui::DragFloat3("light.direction", &light.direction[0], .01f, -10.0f,
                     10.0f);
+  ImGui::DragFloat("light.static_distance", &light.static_distance, .01f, 1.0f,
+                   1000.0f);
+  ImGui::DragFloat("light.static_fov", &light.static_fov, .01f, 1.0f, 120.0f);
   ImGui::DragFloat("camera.fov", &camera.fov, 1.0f, 0.0f, 120.0f);
   ImGui::DragFloat("camera.near", &camera.near, 0.001f, 0.001f, 1.0f);
   ImGui::DragFloat("camera.far", &camera.far, 0.1f, 1.0f, 1000.0f);
@@ -243,7 +266,7 @@ void RenderGui(const GameTimer &game_timer, Camera &camera, Light &light,
                      1.0f);
   ImGui::SliderFloat("tileConfig.grid_scale", &tileConfig.grid_scale, 1.0f,
                      1000.0f);
-  ImGui::SliderInt("tileConfig.resolution", &tileConfig.resolution, 512, 2048);
+  ImGui::SliderInt("tileConfig.resolution", &tileConfig.resolution, 32, 1024);
   ImGui::SliderFloat("tileConfig.repeat_scale", &tileConfig.repeat_scale, 0.0f,
                      100.0f);
   ImGui::SliderFloat("tileConfig.rotation_scale", &tileConfig.rotation_scale,
@@ -271,7 +294,7 @@ Game::Game(Platform *platform) : m_platform{platform} {
   m_textures.emplace_back(LoadTexture(
       "assets/textures/GroundDirtRocky020/GroundDirtRocky020_COL_2K.jpg"));
   m_textures.emplace_back(NoiseTexture(512, 100.0f, 100.0f));
-  m_textures.emplace_back(HeightmapTexture(512, 0.0f, 1.0f, 300, 15, 0.4));
+  m_textures.emplace_back(HeightmapTexture(512, 0.0f, 1.0f, 300, 50, 0.3));
   m_textures.emplace_back(LoadTexture("assets/textures/ogldev/water.png"));
   m_textures.emplace_back(
       LoadTexture("assets/textures/ogldev/tilable-IMG_0044-verydark.png"));
@@ -289,10 +312,13 @@ Game::Game(Platform *platform) : m_platform{platform} {
   m_rp_terrain.emplace_back();
   m_material_shader.emplace_back();
   m_terrain_shader.emplace_back();
-  m_light = {.ambient_color = {0.3f, 0.3f, 0.3f},
-             .direction = {glm::normalize(glm::vec3(-0.2f, 1.0f, 0.2f))},
-             .position = {-1.0f, 1.0f, 0.5f},
-             .diffuse_color = {1.0f, 1.0f, 1.0f}};
+  m_light = {
+      .ambient_color = {0.3f, 0.3f, 0.3f},
+      .direction = {glm::normalize(glm::vec3(-0.2f, 0.2f, 0.2f))},
+      .diffuse_color = {1.0f, 1.0f, 1.0f},
+      .static_distance = 200.0f,
+      .static_fov = 40.0f,
+  };
 
   glm::vec3 initial_camera_position{-5.0, 70.0, -70.0};
   glm::vec3 initial_camera_target{0.0, 10.0f, 0.0};
@@ -309,10 +335,10 @@ Game::Game(Platform *platform) : m_platform{platform} {
       glm::rotate(glm::mat4(1.0f), -1.0f, glm::vec3(0.0, 1.0, 0.0));
   m_terrain_matrix = glm::mat4(1.0f);
   m_tile_config = {
-      .height_scale = 20.0f,
+      .height_scale = 30.0f,
       .width_scale = 1.0f,
-      .grid_scale = 85.0f,
-      .resolution = 1024,
+      .grid_scale = 90.0f,
+      .resolution = 256,
       .repeat_scale = 20.0f,
       .rotation_scale = 100.0f,
       .translation_scale = 10.0f,
@@ -440,10 +466,13 @@ void Game::Render() {
   glm::mat4 model_vp = vp * m_model_matrix;
   glm::mat4 terrain_vp = vp * m_terrain_matrix;
 
+  glm::vec3 static_light_pos{glm::normalize(m_light.direction) *
+                             m_light.static_distance};
+  glm::vec3 yAxis{0.0, 1.0, 0.0};
   glm::mat4 light_transform =
-      glm::lookAt(camera_position + glm::normalize(m_light.direction) * 5.0f,
-                  camera_position, glm::vec3(0.0, 1.0, 0.0));
-  glm::mat4 light_projection = m_rp_depth_map[0].GetProjection();
+      glm::lookAt(static_light_pos, m_camera.target, yAxis);
+  glm::mat4 light_projection = m_rp_depth_map[0].GetProjection(
+      m_light.static_fov, 0.1f, m_light.static_distance * 2.0);
   glm::mat4 light_vp = light_projection * light_transform;
   glm::mat4 model_light_vp = light_vp * m_model_matrix;
   glm::mat4 terrain_light_vp = light_vp * m_terrain_matrix;
@@ -503,7 +532,7 @@ void Game::Render() {
   // m_rp_tex[0].Draw(m_rp_depth_map[0].GetTexture());
 
   // 3d icons
-  m_rp_icon[0].Draw(vp * glm::vec4(m_light.position, 1.0),
+  m_rp_icon[0].Draw(vp * glm::vec4(static_light_pos, 1.0),
                     glm::vec4(1.0f, 1.0f, 0.0f, 1.0f));
   m_rp_icon[0].Draw(vp * glm::vec4(m_camera.target, 1.0),
                     glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));

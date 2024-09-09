@@ -29,6 +29,7 @@ layout (location = 0) in uint aMaterialIdx;
 out vec3 worldPos;
 out vec2 texCoords;
 out vec2 terrainCoords;
+out vec3 normalDir;
 out vec4 lightSpacePosition;
 flat out uint materialIdx;
 
@@ -45,6 +46,17 @@ vec2 GetGridTexCoords(int i, int j, int resolution) {
     float(j) / float(resolution),
     float(i) / float(resolution)
   );
+}
+
+vec3 GetGradient(sampler2D tex, vec2 coords, float coordsScale) {
+  float epsilon = 0.001f;
+  float gradScale = coordsScale / epsilon;
+  float heightCenter = texture(tex, coords).r;
+  float heightRight  = texture(tex, coords + vec2(epsilon, 0.0)).r;
+  float heightUp     = texture(tex, coords + vec2(0.0, epsilon)).r;
+  float dy_dx = -(heightRight - heightCenter) * gradScale;
+  float dy_dz = (heightUp - heightCenter) * gradScale;
+  return normalize(vec3(dy_dx, 1.0f, dy_dz));
 }
 
 void main() {
@@ -69,5 +81,9 @@ void main() {
   materialIdx = aMaterialIdx;
   gl_Position = uMVP * vec4(position, 1.0);
   lightSpacePosition = uLightMVP * vec4(position, 1.0);
+
+  float coordsScale = tc.height_scale / tc.width_scale / tc.grid_scale;
+  normalDir = GetGradient(uHeightmapTexture, terrainCoords, coordsScale);
+  normalDir = mat3(uModelMatrix) * normalDir;
 }
  

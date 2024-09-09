@@ -3,7 +3,7 @@
 
 RPTerrain::RPTerrain() {
   BSDFMaterial terrain_material{
-      .ambient_color = glm::vec3(0.1, 0.1, 0.1),
+      .ambient_color = glm::vec3(0.5, 0.5, 0.5),
       .diffuse_color = glm::vec3(.8, 0.3, 0.0),
       .specular_color = glm::vec3(0.5, 0.5, 0.5),
   };

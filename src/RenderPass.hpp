@@ -19,8 +19,10 @@ struct Camera {
 struct Light {
   glm::vec3 ambient_color;
   glm::vec3 direction;
-  glm::vec3 position;
   glm::vec3 diffuse_color;
+  float static_distance;
+  float static_fov;
+  float static_bias;
 };
 
 struct TextureTileConfig {
@@ -237,7 +239,6 @@ public:
     m_shader.Uniform3fv("uAmbientLightColor", light.ambient_color);
     m_shader.Uniform3fv("uLightDir", light.direction);
     m_shader.Uniform3fv("uLightColor", light.diffuse_color);
-    m_shader.Uniform3fv("uLightPos", light.position);
     m_shader.UniformMatrix4fv("uMVP", GL_FALSE, mvp);
     m_shader.UniformMatrix4fv("uLightMVP", GL_FALSE, light_mvp);
     m_shader.UniformMatrix4fv("uModelMatrix", GL_FALSE, model_matrix);
@@ -362,7 +363,6 @@ public:
     m_shader.Uniform3fv("uAmbientLightColor", light.ambient_color);
     m_shader.Uniform3fv("uLightDir", light.direction);
     m_shader.Uniform3fv("uLightColor", light.diffuse_color);
-    m_shader.Uniform3fv("uLightPos", light.position);
     m_shader.UniformMatrix4fv("uMVP", GL_FALSE, mvp);
     m_shader.UniformMatrix4fv("uLightMVP", GL_FALSE, light_mvp);
     m_shader.UniformMatrix4fv("uModelMatrix", GL_FALSE, model_matrix);
@@ -465,7 +465,7 @@ public:
       : m_fbo{std::move(other.m_fbo)}, m_texture{std::move(other.m_texture)},
         m_texture_size{other.m_texture_size}, g_vp{other.g_vp},
         g_depth_test{other.g_depth_test}, g_cull_face{other.g_cull_face} {};
-  glm::mat4 GetProjection() const;
+  glm::mat4 GetProjection(float fov, float near, float far) const;
   void Begin();
   void End();
   const RPTexture &GetTexture() const;

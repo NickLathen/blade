@@ -30,10 +30,10 @@ RPDepthMap::RPDepthMap(GLuint texture_size) : m_texture_size{texture_size} {
   m_fbo.UnbindFramebuffer(GL_DRAW_FRAMEBUFFER);
 };
 
-glm::mat4 RPDepthMap::GetProjection() const {
-  // return glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 100.0f);
-  float scale = 50.0f;
-  return glm::ortho(-scale, scale, -scale, scale, .01f, 250.0f);
+glm::mat4 RPDepthMap::GetProjection(float fov, float near, float far) const {
+  return glm::perspective(glm::radians(fov), 1.0f, near, far);
+  // float scale = 100.0f;
+  // return glm::ortho(-scale, scale, -scale, scale, .01f, 250.0f);
 }
 
 void RPDepthMap::Begin() {
