@@ -51,12 +51,14 @@ struct TileConfig {
   float hue_scale;
   float saturation_scale;
   float brightness_scale;
+  float flat_bias;
+  float parallel_bias;
 };
 layout(std140) uniform uTileConfigBlock {
   TileConfig tileConfig;
 } uTileConfig;
 
-float CalcShadowFactor(vec4 position, float diffuseFactor) {
+float CalcShadowFactor(vec4 position, float bias) {
   float kShadowStrength = 0.8;
   vec3 ProjCoords = position.xyz / position.w;
   vec3 UVCoords;
@@ -66,7 +68,6 @@ float CalcShadowFactor(vec4 position, float diffuseFactor) {
   if (UVCoords.z < 0.0 || UVCoords.x < 0.0 || UVCoords.x > 1.0 || UVCoords.y < 0.0 || UVCoords.y > 1.0) {
     return 1.0;
   }
-  float bias = mix(0.0000001, 0.000001, diffuseFactor);
   UVCoords.z -= bias;
   float shadowFactor = 0.0;
   float texelSize = 1.0 / float(textureSize(uDepthTexture, 0));
@@ -154,17 +155,6 @@ vec4 TransformTexColor(vec4 color, vec2 texCoords, TileConfig tc) {
   return colorOut;
 }
 
-vec3 GetGradient(sampler2D tex, vec2 coords, float coordsScale) {
-  float epsilon = 0.001f;
-  float gradScale = coordsScale / epsilon;
-  float heightCenter = texture(tex, coords).r;
-  float heightRight  = texture(tex, coords + vec2(epsilon, 0.0)).r;
-  float heightUp     = texture(tex, coords + vec2(0.0, epsilon)).r;
-  float dy_dx = (heightRight - heightCenter) * gradScale;
-  float dy_dz = (heightUp - heightCenter) * gradScale;
-  return normalize(vec3(dy_dx, 1.0f, dy_dz));
-}
-
 void main() {
   TileConfig tc = uTileConfig.tileConfig;
   Material material = uMaterial.materials[materialIdx];
@@ -222,7 +212,8 @@ void main() {
                   specularFactor * uLightColor * material.specularColor;
   //apply shadows
   if (diffuseFactor > 0.0f) {
-    float shadowFactor = CalcShadowFactor(lightSpacePosition, diffuseFactor);
+    float bias = mix(tc.parallel_bias, tc.flat_bias, diffuseFactor);
+    float shadowFactor = CalcShadowFactor(lightSpacePosition, bias);
     litColor *= shadowFactor;
   }
   color = vec4(ambientColor + litColor, 1.0f);

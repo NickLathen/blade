@@ -18,6 +18,8 @@ struct TileConfig {
   float hue_scale;
   float saturation_scale;
   float brightness_scale;
+  float flat_bias;
+  float parallel_bias;
 };
 layout(std140) uniform uTileConfigBlock {
   TileConfig tileConfig;

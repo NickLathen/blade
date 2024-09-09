@@ -280,6 +280,10 @@ void RenderGui(const GameTimer &game_timer, Camera &camera, Light &light,
                      &tileConfig.saturation_scale, 0.0f, 10.0f);
   ImGui::SliderFloat("tileConfig.brightness_scale",
                      &tileConfig.brightness_scale, 0.0f, 10.0f);
+  ImGui::SliderFloat("tileConfig.flat_bias", &tileConfig.flat_bias, 1e-8f,
+                     1e-6f, "%.8f");
+  ImGui::SliderFloat("tileConfig.parallel_bias", &tileConfig.parallel_bias,
+                     1e-7f, 1e-5f, "%.8f");
 
   ImGui::Text("%.1f FPS (%.3f ms/frame)", io.Framerate, 1000.0f / io.Framerate);
   ImGui::End();
@@ -314,14 +318,14 @@ Game::Game(Platform *platform) : m_platform{platform} {
   m_terrain_shader.emplace_back();
   m_light = {
       .ambient_color = {0.3f, 0.3f, 0.3f},
-      .direction = {glm::normalize(glm::vec3(-0.2f, 0.2f, 0.2f))},
+      .direction = {glm::normalize(glm::vec3(-0.2f, 0.3f, 0.2f))},
       .diffuse_color = {1.0f, 1.0f, 1.0f},
-      .static_distance = 200.0f,
-      .static_fov = 40.0f,
+      .static_distance = 500.0f,
+      .static_fov = 65.0f,
   };
 
-  glm::vec3 initial_camera_position{-5.0, 70.0, -70.0};
-  glm::vec3 initial_camera_target{0.0, 10.0f, 0.0};
+  glm::vec3 initial_camera_position{-75.0, 250.0, -275.0};
+  glm::vec3 initial_camera_target{0.0, 50.0f, 0.0};
   glm::mat4 transform{glm::lookAt(initial_camera_position,
                                   initial_camera_target, glm::vec3{0, 1, 0})};
   glm::vec2 drawable_size{m_platform->GetDrawableSize()};
@@ -330,14 +334,14 @@ Game::Game(Platform *platform) : m_platform{platform} {
               .aspect_ratio = 1.0f * drawable_size.x / drawable_size.y,
               .fov = 60,
               .near = 0.01f,
-              .far = 1000.0f};
+              .far = 2000.0f};
   m_model_matrix =
       glm::rotate(glm::mat4(1.0f), -1.0f, glm::vec3(0.0, 1.0, 0.0));
   m_terrain_matrix = glm::mat4(1.0f);
   m_tile_config = {
-      .height_scale = 30.0f,
+      .height_scale = 100.0f,
       .width_scale = 1.0f,
-      .grid_scale = 90.0f,
+      .grid_scale = 300.0f,
       .resolution = 256,
       .repeat_scale = 20.0f,
       .rotation_scale = 100.0f,
@@ -346,6 +350,8 @@ Game::Game(Platform *platform) : m_platform{platform} {
       .hue_scale = 0.1f,
       .saturation_scale = 0.1f,
       .brightness_scale = 0.2f,
+      .flat_bias = 1.5e-7f,
+      .parallel_bias = 2.5e-6f,
   };
   m_game_timer.count_per_microsecond =
       SDL_GetPerformanceFrequency() / 1'000'000;
