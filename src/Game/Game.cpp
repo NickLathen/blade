@@ -1,5 +1,6 @@
 #include <imgui.h>
 #include <iostream>
+#include <random>
 
 #include <PerlinNoise.hpp>
 #define STB_IMAGE_IMPLEMENTATION
@@ -84,8 +85,7 @@ RPTexture NoiseTexture(int texture_size, float x_scale, float y_scale) {
   int height = texture_size;
   float inverse_width = 1.0 / width;
   float inverse_height = 1.0 / height;
-  int buffer_size = sizeof(float) * width * height;
-  float *noise_buffer = (float *)malloc(buffer_size);
+  std::vector<float> noise_buffer(width * height);
   const siv::PerlinNoise::seed_type seed = 234567u;
   const siv::PerlinNoise perlin{seed};
   for (int i = 0; i < height; i++) {
@@ -98,11 +98,126 @@ RPTexture NoiseTexture(int texture_size, float x_scale, float y_scale) {
     }
   }
   glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, width, height, 0, GL_RED, GL_FLOAT,
-               noise_buffer);
+               &noise_buffer[0]);
   glGenerateMipmap(GL_TEXTURE_2D);
-  free(noise_buffer);
   return texture;
 }
+
+void MapToRange(std::vector<float> &buffer, float min_range, float max_range) {
+  float minVal = buffer[0];
+  float maxVal = buffer[0];
+  for (float &val : buffer) {
+    if (val < minVal) {
+      minVal = val;
+    } else if (val > maxVal) {
+      maxVal = val;
+    }
+  }
+  float in_range = maxVal - minVal;
+  float out_range = max_range - min_range;
+  for (float &val : buffer) {
+    float frac = (val - minVal) / in_range;
+    val = frac * out_range + min_range;
+  }
+}
+
+float Lerp(float x1, float x2, float factor) {
+  return factor * x1 + (1.0f - factor) * x2;
+}
+
+enum FILTER_DIRECTION { FD_UP, FD_DOWN, FD_LEFT, FD_RIGHT } filterDirection;
+
+void FIRFilter(std::vector<float> &buffer, float factor,
+               FILTER_DIRECTION direction, int height, int width) {
+  if (direction == FD_RIGHT) {
+    for (int i = 0; i < height; i++) {
+      int rowOffset = i * width;
+      for (int j = 1; j < width; j++) {
+        buffer[j + rowOffset] =
+            Lerp(buffer[(j - 1) + rowOffset], buffer[j + rowOffset], factor);
+      }
+    }
+  } else if (direction == FD_LEFT) {
+    for (int i = 0; i < height; i++) {
+      int rowOffset = i * width;
+      for (int j = width - 2; j >= 0; j--) {
+        buffer[j + rowOffset] =
+            Lerp(buffer[(j + 1) + rowOffset], buffer[j + rowOffset], factor);
+      }
+    }
+  } else if (direction == FD_UP) {
+    for (int j = 0; j < width; j++) {
+      for (int i = 1; i < height; i++) {
+        int rowOffset = i * width;
+        int prevRowOffset = (i - 1) * width;
+        buffer[j + rowOffset] =
+            Lerp(buffer[j + prevRowOffset], buffer[j + rowOffset], factor);
+      }
+    }
+  } else if (direction == FD_DOWN) {
+    for (int j = 0; j < width; j++) {
+      for (int i = height - 2; i >= 0; i--) {
+        int rowOffset = i * width;
+        int prevRowOffset = (i + 1) * width;
+        buffer[j + rowOffset] =
+            Lerp(buffer[j + prevRowOffset], buffer[j + rowOffset], factor);
+      }
+    }
+  }
+}
+
+RPTexture HeightmapTexture(int texture_size, int iterations, float min_height,
+                           float max_height) {
+  RPTexture texture{};
+  texture.BindTexture(GL_TEXTURE_2D);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
+                  GL_LINEAR_MIPMAP_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+  std::vector<float> heightmap_buffer(texture_size * texture_size);
+
+  // FaultFormationTerrain
+  std::random_device rd;
+  std::mt19937 gen(rd());
+  std::uniform_int_distribution<> distrib(0, texture_size - 1);
+
+  float delta_height = max_height - min_height;
+  for (int i = 0; i < iterations; i++) {
+    float i_frac = float(i) / float(iterations);
+    float height = max_height - i_frac * delta_height;
+    glm::ivec2 p1{distrib(gen), distrib(gen)};
+    glm::ivec2 p2{distrib(gen), distrib(gen)};
+    glm::ivec2 dir{p2 - p1};
+    for (int y = 0; y < texture_size; y++) {
+      for (int x = 0; x < texture_size; x++) {
+        glm::ivec2 dir_in{x - p1.x, y - p1.y};
+        int cross_product = dir_in.x * dir.y - dir.x * dir_in.y;
+        if (cross_product > 0) {
+          heightmap_buffer[x + y * texture_size] += height;
+        }
+      }
+    }
+  }
+  MapToRange(heightmap_buffer, 0, 1.0);
+  float smooth_factor = .2f;
+  float smooth_iterations = 30;
+  for (int i = 0; i < smooth_iterations; i++) {
+    FIRFilter(heightmap_buffer, smooth_factor, FD_UP, texture_size,
+              texture_size);
+    FIRFilter(heightmap_buffer, smooth_factor, FD_DOWN, texture_size,
+              texture_size);
+    FIRFilter(heightmap_buffer, smooth_factor, FD_LEFT, texture_size,
+              texture_size);
+    FIRFilter(heightmap_buffer, smooth_factor, FD_RIGHT, texture_size,
+              texture_size);
+  }
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, texture_size, texture_size, 0, GL_RED,
+               GL_FLOAT, &heightmap_buffer[0]);
+  glGenerateMipmap(GL_TEXTURE_2D);
+  return texture;
+};
 
 void RenderGui(const GameTimer &game_timer, Camera &camera, Light &light,
                TextureTileConfig &tileConfig, glm::mat4 &model_matrix) {
@@ -124,7 +239,7 @@ void RenderGui(const GameTimer &game_timer, Camera &camera, Light &light,
   ImGui::DragFloat("camera.far", &camera.far, 0.1f, 1.0f, 1000.0f);
 
   ImGui::SliderFloat("tileConfig.height_scale", &tileConfig.height_scale, 0.0f,
-                     50.0f);
+                     1000.0f);
   ImGui::SliderFloat("tileConfig.width_scale", &tileConfig.width_scale, 0.0f,
                      1.0f);
   ImGui::SliderFloat("tileConfig.grid_scale", &tileConfig.grid_scale, 1.0f,
@@ -157,6 +272,7 @@ Game::Game(Platform *platform) : m_platform{platform} {
   m_textures.emplace_back(LoadTexture(
       "assets/textures/GroundDirtRocky020/GroundDirtRocky020_COL_2K.jpg"));
   m_textures.emplace_back(NoiseTexture(2048, 200.0f, 200.0f));
+  m_textures.emplace_back(HeightmapTexture(512, 300, 0.0f, 500.0f));
   m_mesh_groups.emplace_back(Import("assets/fullroom/fullroom.obj"));
   m_rp_material.emplace_back(m_mesh_groups[0].GetMaterials(),
                              m_mesh_groups[0].GetVertexBuffer(),
@@ -172,7 +288,7 @@ Game::Game(Platform *platform) : m_platform{platform} {
              .position = {-1.0f, 1.0f, 0.5f},
              .diffuse_color = {1.0f, 1.0f, 1.0f}};
 
-  glm::vec3 initial_camera_position{2, 0, 2};
+  glm::vec3 initial_camera_position{2, 10, 2};
   glm::vec3 initial_camera_target{initial_camera_position +
                                   glm::vec3(0, 0, -1)};
   glm::mat4 transform{glm::lookAt(initial_camera_position,
@@ -189,7 +305,7 @@ Game::Game(Platform *platform) : m_platform{platform} {
   m_terrain_matrix = glm::mat4(1.0f);
   m_tile_config = {
       .height_scale = 3.0f,
-      .width_scale = 0.1f,
+      .width_scale = 1.0f,
       .grid_scale = 256.0f,
       .resolution = 1024,
       .repeat_scale = 75.0f,
@@ -339,7 +455,7 @@ void Game::Render() {
 
   // #2 terrain
   m_terrain_shader[0].BeginDepth();
-  m_terrain_shader[0].BindNoiseTexture(m_textures[2]);
+  m_terrain_shader[0].BindHeightmapTexture(m_textures[3]);
   m_terrain_shader[0].SetDepthUniforms(m_tile_config, terrain_light_vp,
                                        m_model_matrix);
   m_rp_terrain[0].DrawVertices(m_tile_config.resolution);
@@ -365,6 +481,7 @@ void Game::Render() {
   m_terrain_shader[0].BindDiffuseTexture(m_textures[0]);
   m_terrain_shader[0].BindBlendTexture(m_textures[1]);
   m_terrain_shader[0].BindNoiseTexture(m_textures[2]);
+  m_terrain_shader[0].BindHeightmapTexture(m_textures[3]);
   m_terrain_shader[0].BindDepthTexture(m_rp_depth_map[0].GetTexture());
   m_terrain_shader[0].SetUniforms(camera_position, m_light, m_tile_config,
                                   terrain_vp, terrain_light_vp,

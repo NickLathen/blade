@@ -305,6 +305,7 @@ public:
     m_shader.Uniform1i("uDiffuseTexture", m_diffuse_texture);
     m_shader.Uniform1i("uBlendTexture", m_blend_texture);
     m_shader.Uniform1i("uNoiseTexture", m_noise_texture);
+    m_shader.Uniform1i("uHeightmapTexture", m_heightmap_texture);
     glUseProgram(0);
 
     m_depth_shader.UseProgram();
@@ -312,7 +313,7 @@ public:
                                        m_tile_config_block_binding);
     m_tile_config_ubo.BufferData(sizeof(TextureTileConfig), NULL,
                                  GL_DYNAMIC_DRAW);
-    m_depth_shader.Uniform1i("uNoiseTexture", m_noise_texture);
+    m_depth_shader.Uniform1i("uHeightmapTexture", m_heightmap_texture);
     glUseProgram(0);
   };
   NEVER_COPY(RPTerrainShader);
@@ -324,6 +325,7 @@ public:
         m_diffuse_texture{other.m_diffuse_texture},
         m_blend_texture{other.m_blend_texture},
         m_noise_texture{other.m_noise_texture},
+        m_heightmap_texture{other.m_heightmap_texture},
         m_material_block_binding{other.m_material_block_binding},
         m_tile_config_block_binding{other.m_tile_config_block_binding} {};
   void Begin() {
@@ -393,6 +395,9 @@ public:
   void BindNoiseTexture(const RPTexture &texture) const {
     BindTexture(texture, m_noise_texture);
   }
+  void BindHeightmapTexture(const RPTexture &texture) const {
+    BindTexture(texture, m_heightmap_texture);
+  }
 
 private:
   Shader m_shader;
@@ -402,6 +407,7 @@ private:
   const GLuint m_diffuse_texture{1};
   const GLuint m_blend_texture{2};
   const GLuint m_noise_texture{3};
+  const GLuint m_heightmap_texture{4};
   const GLuint m_material_block_binding{0};
   const GLuint m_tile_config_block_binding{1};
 

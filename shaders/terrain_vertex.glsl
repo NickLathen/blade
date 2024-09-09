@@ -1,6 +1,6 @@
 #version 300 es
 
-uniform sampler2D uNoiseTexture;
+uniform sampler2D uHeightmapTexture;
 
 uniform mat4 uMVP;
 uniform mat4 uModelMatrix;
@@ -64,7 +64,7 @@ void main() {
   aPos = GetVertexPosition(texCoords, tc.grid_scale);
 
   terrainCoords = texCoords * tc.width_scale;
-  float height = texture(uNoiseTexture, terrainCoords).r * tc.height_scale;
+  float height = texture(uHeightmapTexture, terrainCoords).r * tc.height_scale;
   vec3 position = vec3(aPos.x, height, aPos.z);
   worldPos = (uModelMatrix * vec4(position, 1.0)).xyz;
   materialIdx = aMaterialIdx;

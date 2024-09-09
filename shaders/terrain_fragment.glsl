@@ -12,6 +12,7 @@ uniform sampler2DShadow uDepthTexture;
 uniform sampler2D uDiffuseTexture;
 uniform sampler2D uBlendTexture;
 uniform sampler2D uNoiseTexture;
+uniform sampler2D uHeightmapTexture;
 
 uniform mat4 uModelMatrix;
 uniform vec3 uAmbientLightColor;
@@ -160,7 +161,7 @@ void main() {
   TileConfig tc = uTileConfig.tileConfig;
   Material material = uMaterial.materials[materialIdx];
 
-  vec3 normalDir = GetGradient(uNoiseTexture, terrainCoords, tc.height_scale, tc.width_scale, tc.grid_scale);
+  vec3 normalDir = GetGradient(uHeightmapTexture, terrainCoords, tc.height_scale, tc.width_scale, tc.grid_scale);
   normalDir = mat3(uModelMatrix) * normalDir;
 
   vec3 lightDir = normalize(uLightDir);
