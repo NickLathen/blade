@@ -32,7 +32,7 @@ out vec2 terrainCoords;
 out vec4 lightSpacePosition;
 flat out uint materialIdx;
 
-vec3 GetVertexPosition(vec2 texCoords, float gridScale) {
+vec3 GetTerrainPosition(vec2 texCoords, float gridScale) {
   return vec3(
     (texCoords.x - 0.5f) * gridScale,
     0.0f,
@@ -40,7 +40,7 @@ vec3 GetVertexPosition(vec2 texCoords, float gridScale) {
   );
 }
 
-vec2 GetTexCoords(int i, int j, int resolution) {
+vec2 GetGridTexCoords(int i, int j, int resolution) {
   return vec2(
     float(j) / float(resolution),
     float(i) / float(resolution)
@@ -49,22 +49,21 @@ vec2 GetTexCoords(int i, int j, int resolution) {
 
 void main() {
   TileConfig tc = uTileConfig.tileConfig;
-  //aPos, texCoords
-  vec3 aPos;
+  //texCoords -> aPos
   int rowWidth = tc.resolution * 2 + 2;
   int row = gl_VertexID / rowWidth;
   int rowVert = gl_VertexID % rowWidth;
   if (rowVert < rowWidth - 2) {
-    texCoords = GetTexCoords(rowVert / 2, row + rowVert % 2, tc.resolution);
+    texCoords = GetGridTexCoords(rowVert / 2, row + rowVert % 2, tc.resolution);
   } else if (rowVert == rowWidth - 2) {
-    texCoords = GetTexCoords(tc.resolution - 1, row + 1, tc.resolution);
+    texCoords = GetGridTexCoords(tc.resolution - 1, row + 1, tc.resolution);
   } else if (rowVert == rowWidth - 1) {
-    texCoords = GetTexCoords(0, row + 1, tc.resolution);
+    texCoords = GetGridTexCoords(0, row + 1, tc.resolution);
   }
-  aPos = GetVertexPosition(texCoords, tc.grid_scale);
-
+  vec3 aPos = GetTerrainPosition(texCoords, tc.grid_scale);
   terrainCoords = texCoords * tc.width_scale;
-  float height = texture(uHeightmapTexture, terrainCoords).r * tc.height_scale;
+  float height = texture(uHeightmapTexture, terrainCoords).r;
+  height *= tc.height_scale;
   vec3 position = vec3(aPos.x, height, aPos.z);
   worldPos = (uModelMatrix * vec4(position, 1.0)).xyz;
   materialIdx = aMaterialIdx;

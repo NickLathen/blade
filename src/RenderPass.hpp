@@ -306,6 +306,10 @@ public:
     m_shader.Uniform1i("uBlendTexture", m_blend_texture);
     m_shader.Uniform1i("uNoiseTexture", m_noise_texture);
     m_shader.Uniform1i("uHeightmapTexture", m_heightmap_texture);
+    m_shader.Uniform1i("uVeryHighTexture", m_very_high_texture);
+    m_shader.Uniform1i("uHighTexture", m_high_texture);
+    m_shader.Uniform1i("uMediumTexture", m_medium_texture);
+    m_shader.Uniform1i("uLowTexture", m_low_texture);
     glUseProgram(0);
 
     m_depth_shader.UseProgram();
@@ -398,6 +402,18 @@ public:
   void BindHeightmapTexture(const RPTexture &texture) const {
     BindTexture(texture, m_heightmap_texture);
   }
+  void BindVeryHighTexture(const RPTexture &texture) const {
+    BindTexture(texture, m_very_high_texture);
+  }
+  void BindHighTexture(const RPTexture &texture) const {
+    BindTexture(texture, m_high_texture);
+  }
+  void BindMediumTexture(const RPTexture &texture) const {
+    BindTexture(texture, m_medium_texture);
+  }
+  void BindLowTexture(const RPTexture &texture) const {
+    BindTexture(texture, m_low_texture);
+  }
 
 private:
   Shader m_shader;
@@ -408,6 +424,10 @@ private:
   const GLuint m_blend_texture{2};
   const GLuint m_noise_texture{3};
   const GLuint m_heightmap_texture{4};
+  const GLuint m_very_high_texture{5};
+  const GLuint m_high_texture{6};
+  const GLuint m_medium_texture{7};
+  const GLuint m_low_texture{8};
   const GLuint m_material_block_binding{0};
   const GLuint m_tile_config_block_binding{1};
 

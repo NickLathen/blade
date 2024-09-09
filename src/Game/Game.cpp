@@ -166,8 +166,9 @@ void FIRFilter(std::vector<float> &buffer, float factor,
   }
 }
 
-RPTexture HeightmapTexture(int texture_size, int iterations, float min_height,
-                           float max_height) {
+RPTexture HeightmapTexture(int texture_size, float min_height, float max_height,
+                           int gen_iterations, int smooth_iterations,
+                           float smooth_factor) {
   RPTexture texture{};
   texture.BindTexture(GL_TEXTURE_2D);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -184,8 +185,8 @@ RPTexture HeightmapTexture(int texture_size, int iterations, float min_height,
   std::uniform_int_distribution<> distrib(0, texture_size - 1);
 
   float delta_height = max_height - min_height;
-  for (int i = 0; i < iterations; i++) {
-    float i_frac = float(i) / float(iterations);
+  for (int i = 0; i < gen_iterations; i++) {
+    float i_frac = float(i) / float(gen_iterations);
     float height = max_height - i_frac * delta_height;
     glm::ivec2 p1{distrib(gen), distrib(gen)};
     glm::ivec2 p2{distrib(gen), distrib(gen)};
@@ -201,8 +202,6 @@ RPTexture HeightmapTexture(int texture_size, int iterations, float min_height,
     }
   }
   MapToRange(heightmap_buffer, 0, 1.0);
-  float smooth_factor = .2f;
-  float smooth_iterations = 30;
   for (int i = 0; i < smooth_iterations; i++) {
     FIRFilter(heightmap_buffer, smooth_factor, FD_UP, texture_size,
               texture_size);
@@ -271,8 +270,15 @@ Game::Game(Platform *platform) : m_platform{platform} {
                   "Poliigon_GrassPatchyGround_4585_BaseColor.jpg"));
   m_textures.emplace_back(LoadTexture(
       "assets/textures/GroundDirtRocky020/GroundDirtRocky020_COL_2K.jpg"));
-  m_textures.emplace_back(NoiseTexture(2048, 200.0f, 200.0f));
-  m_textures.emplace_back(HeightmapTexture(512, 300, 0.0f, 500.0f));
+  m_textures.emplace_back(NoiseTexture(512, 100.0f, 100.0f));
+  m_textures.emplace_back(HeightmapTexture(512, 0.0f, 1.0f, 300, 15, 0.4));
+  m_textures.emplace_back(LoadTexture("assets/textures/ogldev/water.png"));
+  m_textures.emplace_back(
+      LoadTexture("assets/textures/ogldev/tilable-IMG_0044-verydark.png"));
+  m_textures.emplace_back(
+      LoadTexture("assets/textures/ogldev/IMGP5497_seamless.jpg"));
+  m_textures.emplace_back(
+      LoadTexture("assets/textures/ogldev/IMGP5525_seamless.jpg"));
   m_mesh_groups.emplace_back(Import("assets/fullroom/fullroom.obj"));
   m_rp_material.emplace_back(m_mesh_groups[0].GetMaterials(),
                              m_mesh_groups[0].GetVertexBuffer(),
@@ -288,9 +294,8 @@ Game::Game(Platform *platform) : m_platform{platform} {
              .position = {-1.0f, 1.0f, 0.5f},
              .diffuse_color = {1.0f, 1.0f, 1.0f}};
 
-  glm::vec3 initial_camera_position{2, 10, 2};
-  glm::vec3 initial_camera_target{initial_camera_position +
-                                  glm::vec3(0, 0, -1)};
+  glm::vec3 initial_camera_position{-5.0, 70.0, -70.0};
+  glm::vec3 initial_camera_target{0.0, 10.0f, 0.0};
   glm::mat4 transform{glm::lookAt(initial_camera_position,
                                   initial_camera_target, glm::vec3{0, 1, 0})};
   glm::vec2 drawable_size{m_platform->GetDrawableSize()};
@@ -304,11 +309,11 @@ Game::Game(Platform *platform) : m_platform{platform} {
       glm::rotate(glm::mat4(1.0f), -1.0f, glm::vec3(0.0, 1.0, 0.0));
   m_terrain_matrix = glm::mat4(1.0f);
   m_tile_config = {
-      .height_scale = 3.0f,
+      .height_scale = 20.0f,
       .width_scale = 1.0f,
-      .grid_scale = 256.0f,
+      .grid_scale = 85.0f,
       .resolution = 1024,
-      .repeat_scale = 75.0f,
+      .repeat_scale = 20.0f,
       .rotation_scale = 100.0f,
       .translation_scale = 10.0f,
       .noise_scale = 1.0f,
@@ -482,6 +487,10 @@ void Game::Render() {
   m_terrain_shader[0].BindBlendTexture(m_textures[1]);
   m_terrain_shader[0].BindNoiseTexture(m_textures[2]);
   m_terrain_shader[0].BindHeightmapTexture(m_textures[3]);
+  m_terrain_shader[0].BindVeryHighTexture(m_textures[4]);
+  m_terrain_shader[0].BindHighTexture(m_textures[5]);
+  m_terrain_shader[0].BindMediumTexture(m_textures[6]);
+  m_terrain_shader[0].BindLowTexture(m_textures[7]);
   m_terrain_shader[0].BindDepthTexture(m_rp_depth_map[0].GetTexture());
   m_terrain_shader[0].SetUniforms(camera_position, m_light, m_tile_config,
                                   terrain_vp, terrain_light_vp,

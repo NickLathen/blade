@@ -13,6 +13,10 @@ uniform sampler2D uDiffuseTexture;
 uniform sampler2D uBlendTexture;
 uniform sampler2D uNoiseTexture;
 uniform sampler2D uHeightmapTexture;
+uniform sampler2D uVeryHighTexture;
+uniform sampler2D uHighTexture;
+uniform sampler2D uMediumTexture;
+uniform sampler2D uLowTexture;
 
 uniform mat4 uModelMatrix;
 uniform vec3 uAmbientLightColor;
@@ -147,13 +151,14 @@ vec4 TransformTexColor(vec4 color, vec2 texCoords, TileConfig tc) {
   return colorOut;
 }
 
-vec3 GetGradient(sampler2D tex, vec2 coords, float heightScale, float widthScale, float gridScale) {
+vec3 GetGradient(sampler2D tex, vec2 coords, float coordsScale) {
   float epsilon = 0.001f;
-  float heightCenter = texture(tex, terrainCoords).r * heightScale;
-  float heightRight  = texture(tex, terrainCoords + vec2(epsilon, 0.0)).r * heightScale;
-  float heightUp     = texture(tex, terrainCoords + vec2(0.0, epsilon)).r * heightScale;
-  float dy_dx = (heightRight - heightCenter) * widthScale / (epsilon * gridScale);
-  float dy_dz = (heightUp - heightCenter) * widthScale / (epsilon * gridScale);
+  float gradScale = coordsScale / epsilon;
+  float heightCenter = texture(tex, coords).r;
+  float heightRight  = texture(tex, coords + vec2(epsilon, 0.0)).r;
+  float heightUp     = texture(tex, coords + vec2(0.0, epsilon)).r;
+  float dy_dx = (heightRight - heightCenter) * gradScale;
+  float dy_dz = (heightUp - heightCenter) * gradScale;
   return normalize(vec3(dy_dx, 1.0f, dy_dz));
 }
 
@@ -161,7 +166,8 @@ void main() {
   TileConfig tc = uTileConfig.tileConfig;
   Material material = uMaterial.materials[materialIdx];
 
-  vec3 normalDir = GetGradient(uHeightmapTexture, terrainCoords, tc.height_scale, tc.width_scale, tc.grid_scale);
+  float coordsScale = tc.height_scale / tc.width_scale / tc.grid_scale;
+  vec3 normalDir = GetGradient(uHeightmapTexture, terrainCoords, coordsScale);
   normalDir = mat3(uModelMatrix) * normalDir;
 
   vec3 lightDir = normalize(uLightDir);
@@ -181,10 +187,34 @@ void main() {
   vec2 transformedCoords = TransformTexCoords(texCoords, tc);
   vec2 noiseCoords = ScaleToCenter(texCoords, 0.5f);
   //apply texture blending
-  vec4 color = mix(texture(uDiffuseTexture, transformedCoords),
-                   texture(uBlendTexture, transformedCoords),
-                   SampleNoise(noiseCoords - 0.25f)
-                  );
+  // vec4 color = mix(texture(uDiffuseTexture, transformedCoords),
+  //                  texture(uBlendTexture, transformedCoords),
+  //                  SampleNoise(noiseCoords - 0.25f)
+  //                 );
+  vec4 color = vec4(0.0f);
+  float normalized_height = worldPos.y / tc.height_scale;
+  float kHighThreshold = 0.6;
+  float kMediumThreshold = 0.4;
+  float kLowThreshold = 0.2;
+  
+  if (normalized_height > kHighThreshold) {
+    float frac = (normalized_height - kHighThreshold) / (1.0 - kHighThreshold);
+    color = mix(texture(uHighTexture, transformedCoords),
+                texture(uVeryHighTexture, transformedCoords),
+                frac);
+  } else if (normalized_height > kMediumThreshold) {
+    float frac = (normalized_height - kMediumThreshold) / (kHighThreshold - kMediumThreshold);
+    color = mix(texture(uMediumTexture, transformedCoords),
+                texture(uHighTexture, transformedCoords),
+                frac);
+  } else if (normalized_height > kLowThreshold) {
+    float frac = (normalized_height - kLowThreshold) / (kMediumThreshold - kLowThreshold);
+    color = mix(texture(uLowTexture, transformedCoords),
+                texture(uMediumTexture, transformedCoords),
+                frac);
+  } else {
+    color = texture(uLowTexture, transformedCoords);
+  }
   //apply texture color variation
   color = TransformTexColor(color, texCoords, tc);
   //apply lighting
