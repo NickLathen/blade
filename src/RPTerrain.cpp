@@ -5,7 +5,7 @@ RPTerrain::RPTerrain() {
   BSDFMaterial terrain_material{
       .ambient_color = glm::vec3(0.5, 0.5, 0.5),
       .diffuse_color = glm::vec3(.8, 0.3, 0.0),
-      .specular_color = glm::vec3(0.5, 0.5, 0.5),
+      .specular_color = glm::vec3(1.0, 1.0, 1.0),
   };
   m_ubo.BufferData(sizeof(terrain_material), &terrain_material, GL_STATIC_DRAW);
   m_vao.BindVertexArray();

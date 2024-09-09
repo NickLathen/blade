@@ -4,7 +4,6 @@ precision highp float;
 in vec3 worldPos;
 in vec2 texCoords;
 in vec2 terrainCoords;
-in vec3 normalDir;
 in vec4 lightSpacePosition;
 flat in uint materialIdx;
 out vec4 FragColor;
@@ -155,9 +154,26 @@ vec4 TransformTexColor(vec4 color, vec2 texCoords, TileConfig tc) {
   return colorOut;
 }
 
+vec3 GetGradient(sampler2D tex, vec2 coords, float coordsScale) {
+  float texelSize = 1.0 / float(textureSize(uDepthTexture, 0));
+  float epsilon = 10.0f * texelSize;
+  float gradScale = coordsScale / epsilon / 2.0f;
+  float heightRight  = texture(tex, coords + vec2(epsilon, 0.0)).r;
+  float heightLeft  = texture(tex, coords + vec2(-epsilon, 0.0)).r;
+  float heightUp     = texture(tex, coords + vec2(0.0, epsilon)).r;
+  float heightDown     = texture(tex, coords + vec2(0.0, -epsilon)).r;
+  float dy_dx = -(heightRight - heightLeft) * gradScale;
+  float dy_dz = (heightUp - heightDown) * gradScale;
+  return normalize(vec3(dy_dx, 1.0f, dy_dz));
+}
+
 void main() {
   TileConfig tc = uTileConfig.tileConfig;
   Material material = uMaterial.materials[materialIdx];
+
+  float coordsScale = tc.height_scale / tc.width_scale / tc.grid_scale;
+  vec3 normalDir = GetGradient(uHeightmapTexture, terrainCoords, coordsScale);
+  normalDir = mat3(uModelMatrix) * normalDir;
 
   vec3 lightDir = normalize(uLightDir);
   vec3 nNormalDir = normalize(normalDir);
