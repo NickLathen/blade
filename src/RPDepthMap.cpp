@@ -46,8 +46,6 @@ void RPDepthMap::Begin() {
   glGetIntegerv(GL_FRONT_FACE, &g_front_face);
   glEnable(GL_DEPTH_TEST);
   glDisable(GL_CULL_FACE);
-  glCullFace(GL_FRONT);
-  glFrontFace(GL_CCW);
   glViewport(0, 0, m_texture_size, m_texture_size);
 };
 
@@ -56,10 +54,8 @@ void RPDepthMap::End() {
   glViewport(g_vp[0], g_vp[1], g_vp[2], g_vp[3]);
   if (g_depth_test == GL_FALSE)
     glDisable(GL_DEPTH_TEST);
-  if (g_cull_face == GL_FALSE)
-    glDisable(GL_CULL_FACE);
-  glCullFace(g_cull_face_mode);
-  glFrontFace(g_front_face);
+  if (g_cull_face == GL_TRUE)
+    glEnable(GL_CULL_FACE);
 };
 
 const RPTexture &RPDepthMap::GetTexture() const { return m_texture; };

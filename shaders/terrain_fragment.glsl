@@ -228,7 +228,7 @@ void main() {
                   specularFactor * uLightColor * material.specularColor;
   //apply shadows
   if (diffuseFactor > 0.0f) {
-    float bias = mix(tc.parallel_bias, tc.flat_bias, diffuseFactor);
+    float bias = mix(tc.parallel_bias, tc.flat_bias, diffuseFactor) / tc.grid_scale;
     float shadowFactor = CalcShadowFactor(lightSpacePosition, bias);
     litColor *= shadowFactor;
   }

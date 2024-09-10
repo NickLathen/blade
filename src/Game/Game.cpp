@@ -200,10 +200,10 @@ void FaultFormation(std::vector<float> &buffer, int texture_size,
   }
 }
 
-std::vector<float> GenerateHeightmap(int texture_size, float min_height,
-                                     float max_height, int gen_iterations,
-                                     int smooth_iterations,
-                                     float smooth_factor) {
+std::vector<float>
+GenerateFaultFormationHeightMap(int texture_size, float min_height,
+                                float max_height, int gen_iterations,
+                                int smooth_iterations, float smooth_factor) {
   std::vector<float> heightmap_buffer(texture_size * texture_size);
 
   // Generate
@@ -227,9 +227,9 @@ std::vector<float> GenerateHeightmap(int texture_size, float min_height,
   return heightmap_buffer;
 }
 
-RPTexture HeightmapTexture(int texture_size, float min_height, float max_height,
-                           int gen_iterations, int smooth_iterations,
-                           float smooth_factor) {
+RPTexture FaultFormationTexture(int texture_size, float min_height,
+                                float max_height, int gen_iterations,
+                                int smooth_iterations, float smooth_factor) {
   RPTexture texture{};
   texture.BindTexture(GL_TEXTURE_2D);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -238,9 +238,9 @@ RPTexture HeightmapTexture(int texture_size, float min_height, float max_height,
                   GL_LINEAR_MIPMAP_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-  std::vector<float> heightmap_buffer{
-      GenerateHeightmap(texture_size, min_height, max_height, gen_iterations,
-                        smooth_iterations, smooth_factor)};
+  std::vector<float> heightmap_buffer{GenerateFaultFormationHeightMap(
+      texture_size, min_height, max_height, gen_iterations, smooth_iterations,
+      smooth_factor)};
 
   glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, texture_size, texture_size, 0, GL_RED,
                GL_FLOAT, &heightmap_buffer[0]);
@@ -249,8 +249,8 @@ RPTexture HeightmapTexture(int texture_size, float min_height, float max_height,
 };
 
 void RegenerateTerrain(RPTexture &tex) {
-  std::vector<float> heightmap_buffer =
-      GenerateHeightmap(512, 0.0f, 1.0f, 300, 50, 0.3);
+  std::vector<float> heightmap_buffer{
+      GenerateFaultFormationHeightMap(512, 0.0f, 1.0f, 300, 50, 0.3)};
   tex.BindTexture(GL_TEXTURE_2D);
   glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 512, 512, GL_RED, GL_FLOAT,
                   &heightmap_buffer[0]);
@@ -299,10 +299,10 @@ void RenderGui(const GameTimer &game_timer, Camera &camera, Light &light,
                      &tileConfig.saturation_scale, 0.0f, 10.0f);
   ImGui::SliderFloat("tileConfig.brightness_scale",
                      &tileConfig.brightness_scale, 0.0f, 10.0f);
-  ImGui::SliderFloat("tileConfig.flat_bias", &tileConfig.flat_bias, 1e-9f,
-                     1e-6f, "%.8f");
+  ImGui::SliderFloat("tileConfig.flat_bias", &tileConfig.flat_bias, 1e-8f,
+                     1e-3f, "%.8f");
   ImGui::SliderFloat("tileConfig.parallel_bias", &tileConfig.parallel_bias,
-                     1e-9f, 1e-5f, "%.8f");
+                     1e-8f, 1e-3f, "%.8f");
 
   ImGui::Text("%.1f FPS (%.3f ms/frame)", io.Framerate, 1000.0f / io.Framerate);
   ImGui::End();
@@ -317,7 +317,7 @@ Game::Game(Platform *platform) : m_platform{platform} {
   m_textures.emplace_back(LoadTexture(
       "assets/textures/GroundDirtRocky020/GroundDirtRocky020_COL_2K.jpg"));
   m_textures.emplace_back(NoiseTexture(512, 100.0f, 100.0f));
-  m_textures.emplace_back(HeightmapTexture(512, 0.0f, 1.0f, 300, 50, 0.3));
+  m_textures.emplace_back(FaultFormationTexture(512, 0.0f, 1.0f, 300, 50, 0.3));
   m_textures.emplace_back(LoadTexture("assets/textures/ogldev/water.png"));
   m_textures.emplace_back(
       LoadTexture("assets/textures/ogldev/tilable-IMG_0044-verydark.png"));
@@ -329,22 +329,22 @@ Game::Game(Platform *platform) : m_platform{platform} {
   m_rp_material.emplace_back(m_mesh_groups[0].GetMaterials(),
                              m_mesh_groups[0].GetVertexBuffer(),
                              m_mesh_groups[0].GetElementBuffer());
-  m_rp_depth_map.emplace_back(2048);
+  m_rp_depth_map.emplace_back(1024);
   m_rp_tex.emplace_back();
   m_rp_icon.emplace_back();
   m_rp_terrain.emplace_back();
   m_material_shader.emplace_back();
   m_terrain_shader.emplace_back();
+  float kGridScale = 250.0f;
   m_light = {
       .ambient_color = {0.3f, 0.3f, 0.3f},
-      .direction = {glm::normalize(glm::vec3(-0.2f, 0.3f, 0.2f))},
+      .direction = {glm::normalize(glm::vec3(-0.2f, 0.2f, 0.2f))},
       .diffuse_color = {1.0f, 1.0f, 1.0f},
-      .static_distance = 800.0f,
-      .static_fov = 90.0f,
+      .static_distance = M_SQRT2f32 * 2.0f * kGridScale,
+      .static_fov = 30.0f,
   };
-
-  glm::vec3 initial_camera_position{-75.0, 300.0, -275.0};
-  glm::vec3 initial_camera_target{0.0, 50.0f, 0.0};
+  glm::vec3 initial_camera_position{0.0f, kGridScale / 2.0f, kGridScale / 2.0f};
+  glm::vec3 initial_camera_target{0.0, kGridScale / 4.0f, 0.0};
   glm::mat4 transform{glm::lookAt(initial_camera_position,
                                   initial_camera_target, glm::vec3{0, 1, 0})};
   glm::vec2 drawable_size{m_platform->GetDrawableSize()};
@@ -353,24 +353,24 @@ Game::Game(Platform *platform) : m_platform{platform} {
               .aspect_ratio = 1.0f * drawable_size.x / drawable_size.y,
               .fov = 60,
               .near = 0.01f,
-              .far = 2000.0f};
+              .far = 1000.0f};
   m_model_matrix =
       glm::rotate(glm::mat4(1.0f), -1.0f, glm::vec3(0.0, 1.0, 0.0));
   m_terrain_matrix = glm::mat4(1.0f);
   m_tile_config = {
-      .height_scale = 200.0f,
+      .height_scale = kGridScale / 3.0f,
       .width_scale = 1.0f,
-      .grid_scale = 800.0f,
+      .grid_scale = kGridScale,
       .resolution = 256,
-      .repeat_scale = 20.0f,
+      .repeat_scale = kGridScale / 25.0f,
       .rotation_scale = 100.0f,
       .translation_scale = 10.0f,
       .noise_scale = 1.0f,
       .hue_scale = 0.1f,
       .saturation_scale = 0.1f,
       .brightness_scale = 0.2f,
-      .flat_bias = 5e-7f,
-      .parallel_bias = 9e-6f,
+      .flat_bias = 2e-4f,
+      .parallel_bias = 4e-4f,
   };
   m_game_timer.count_per_microsecond =
       SDL_GetPerformanceFrequency() / 1'000'000;
@@ -511,11 +511,11 @@ void Game::Render() {
   m_rp_depth_map[0].Begin();
 
   // #1 models
-  m_material_shader[0].BeginDepth();
-  m_material_shader[0].SetDepthUniforms(model_light_vp, model_light_vp,
-                                        m_model_matrix);
-  m_rp_material[0].DrawVertices();
-  m_material_shader[0].EndDepth();
+  // m_material_shader[0].BeginDepth();
+  // m_material_shader[0].SetDepthUniforms(model_light_vp, model_light_vp,
+  //                                       m_model_matrix);
+  // m_rp_material[0].DrawVertices();
+  // m_material_shader[0].EndDepth();
 
   // #2 terrain
   m_terrain_shader[0].BeginDepth();
@@ -529,16 +529,16 @@ void Game::Render() {
   m_rp_depth_map[0].End();
 
   // Draw Material
-  m_material_shader[0].Begin();
-  m_material_shader[0].BindDepthTexture(m_rp_depth_map[0].GetTexture());
-  m_material_shader[0].BindDiffuseTexture(m_textures[0]);
-  m_material_shader[0].BindNoiseTexture(m_textures[2]);
-  m_material_shader[0].BindMaterialsBuffer(
-      m_rp_material[0].GetMaterialsBuffer());
-  m_material_shader[0].SetUniforms(camera_position, m_light, model_vp,
-                                   model_light_vp, m_model_matrix);
-  m_rp_material[0].DrawVertices();
-  m_material_shader[0].End();
+  // m_material_shader[0].Begin();
+  // m_material_shader[0].BindDepthTexture(m_rp_depth_map[0].GetTexture());
+  // m_material_shader[0].BindDiffuseTexture(m_textures[0]);
+  // m_material_shader[0].BindNoiseTexture(m_textures[2]);
+  // m_material_shader[0].BindMaterialsBuffer(
+  //     m_rp_material[0].GetMaterialsBuffer());
+  // m_material_shader[0].SetUniforms(camera_position, m_light, model_vp,
+  //                                  model_light_vp, m_model_matrix);
+  // m_rp_material[0].DrawVertices();
+  // m_material_shader[0].End();
 
   // Draw Terrain
   m_terrain_shader[0].Begin();
