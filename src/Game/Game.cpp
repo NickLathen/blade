@@ -47,7 +47,7 @@ void EnableAnisotropicFilter(const RPTexture &texture) {
   }
 }
 
-RPTexture LoadTexture(const std::string &path) {
+RPTexture loadTexture2D(const std::string &path) {
   RPTexture texture{};
   texture.BindTexture(GL_TEXTURE_2D);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
@@ -69,6 +69,49 @@ RPTexture LoadTexture(const std::string &path) {
     std::cout << "Failed to load texture" << std::endl;
   }
   stbi_image_free(data);
+  return texture;
+}
+
+RPTexture LoadTexture2DArray(const std::vector<std::string> &paths) {
+  int texture_depth = paths.size();
+  RPTexture texture{};
+  texture.BindTexture(GL_TEXTURE_2D_ARRAY);
+
+  glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_REPEAT);
+  glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_REPEAT);
+  glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER,
+                  GL_LINEAR_MIPMAP_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+  int texture_width = 0;
+  int texture_height = 0;
+
+  for (int i = 0; i < texture_depth; ++i) {
+    int width, height, num_channels;
+    const std::string &path = paths[i];
+    unsigned char *data =
+        stbi_load(path.c_str(), &width, &height, &num_channels, 4);
+    if (i == 0) {
+      texture_width = width;
+      texture_height = height;
+      glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA8, texture_width,
+                   texture_height, texture_depth, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+                   nullptr);
+    }
+    if (width != texture_width || height != texture_height) {
+      std::cerr << "Image dimensions do not match!" << std::endl;
+      return texture;
+    }
+    if (!data) {
+      std::cerr << "Failed to load image: " << path << std::endl;
+      return texture;
+    }
+    glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, i, width, height, 1, GL_RGBA,
+                    GL_UNSIGNED_BYTE, data);
+    stbi_image_free(data);
+  }
+  glGenerateMipmap(GL_TEXTURE_2D_ARRAY);
+  glBindTexture(GL_TEXTURE_2D_ARRAY, 0);
   return texture;
 }
 
@@ -344,7 +387,7 @@ std::vector<float> GenerateMidpointDisplacmentHeightMap(int texture_size) {
   }
 
   // Smooth
-  int kSmoothIterations = 5;
+  int kSmoothIterations = 0;
   float kSmoothFactor = 0.5;
   for (int i = 0; i < kSmoothIterations; i++) {
     FIRFilter(buffer, kSmoothFactor, FD_UP, texture_size, texture_size);
@@ -392,7 +435,7 @@ void RenderGui(const GameTimer &game_timer, Camera &camera, Light &light,
                      1000.0f);
   ImGui::SliderInt("tileConfig.resolution", &tileConfig.resolution, 32, 1024);
   ImGui::SliderFloat("tileConfig.repeat_scale", &tileConfig.repeat_scale, 0.0f,
-                     100.0f);
+                     1000.0f);
   ImGui::SliderFloat("tileConfig.rotation_scale", &tileConfig.rotation_scale,
                      0.0f, 300.0f);
   ImGui::SliderFloat("tileConfig.translation_scale",
@@ -414,7 +457,7 @@ void RenderGui(const GameTimer &game_timer, Camera &camera, Light &light,
 }
 
 int kDepthMapSize = 1024;
-int kHeightMapSize = 1024;
+int kHeightMapSize = 2048;
 int kNoiseTextureSize = 512;
 
 void RegenerateTerrain(RPTexture &tex) {
@@ -428,21 +471,20 @@ void RegenerateTerrain(RPTexture &tex) {
 
 Game::Game(Platform *platform) : m_platform{platform} {
   // m_textures.emplace_back(
-  // LoadTexture("assets/textures/eight_square_test/eight_square_test.png"));
+  // loadTexture2D("assets/textures/eight_square_test/eight_square_test.png"));
   m_textures.emplace_back(
-      LoadTexture("assets/textures/Poliigon_GrassPatchyGround_4585/2K/"
-                  "Poliigon_GrassPatchyGround_4585_BaseColor.jpg"));
-  m_textures.emplace_back(LoadTexture(
+      loadTexture2D("assets/textures/Poliigon_GrassPatchyGround_4585/2K/"
+                    "Poliigon_GrassPatchyGround_4585_BaseColor.jpg"));
+  m_textures.emplace_back(loadTexture2D(
       "assets/textures/GroundDirtRocky020/GroundDirtRocky020_COL_2K.jpg"));
   m_textures.emplace_back(NoiseTexture(kNoiseTextureSize, 100.0f, 100.0f));
   m_textures.emplace_back(DisplacementTexture(kHeightMapSize));
-  m_textures.emplace_back(LoadTexture("assets/textures/ogldev/water.png"));
-  m_textures.emplace_back(
-      LoadTexture("assets/textures/ogldev/tilable-IMG_0044-verydark.png"));
-  m_textures.emplace_back(
-      LoadTexture("assets/textures/ogldev/IMGP5497_seamless.jpg"));
-  m_textures.emplace_back(
-      LoadTexture("assets/textures/ogldev/IMGP5525_seamless.jpg"));
+  m_textures.emplace_back(LoadTexture2DArray({
+      "assets/textures/ogldev/water.png",
+      "assets/textures/ogldev/tilable-IMG_0044-verydark.png",
+      "assets/textures/ogldev/IMGP5497_seamless.jpg",
+      "assets/textures/ogldev/IMGP5525_seamless.jpg",
+  }));
   m_mesh_groups.emplace_back(Import("assets/fullroom/fullroom.obj"));
   m_rp_material.emplace_back(m_mesh_groups[0].GetMaterials(),
                              m_mesh_groups[0].GetVertexBuffer(),
@@ -662,13 +704,9 @@ void Game::Render() {
   // Draw Terrain
   m_terrain_shader[0].Begin();
   m_terrain_shader[0].BindDiffuseTexture(m_textures[0]);
-  m_terrain_shader[0].BindBlendTexture(m_textures[1]);
   m_terrain_shader[0].BindNoiseTexture(m_textures[2]);
   m_terrain_shader[0].BindHeightmapTexture(m_textures[3]);
-  m_terrain_shader[0].BindVeryHighTexture(m_textures[4]);
-  m_terrain_shader[0].BindHighTexture(m_textures[5]);
-  m_terrain_shader[0].BindMediumTexture(m_textures[6]);
-  m_terrain_shader[0].BindLowTexture(m_textures[7]);
+  m_terrain_shader[0].BindBlendTexture(m_textures[4]);
   m_terrain_shader[0].BindDepthTexture(m_rp_depth_map[0].GetTexture());
   m_terrain_shader[0].SetUniforms(camera_position, m_light, m_tile_config,
                                   terrain_vp, terrain_light_vp,
@@ -688,6 +726,5 @@ void Game::Render() {
   m_game_timer.t_finish_draw_calls = SDL_GetPerformanceCounter();
   RenderGui(m_game_timer, m_camera, m_light, m_tile_config, m_model_matrix);
   m_game_timer.t_finish_gui_draw = SDL_GetPerformanceCounter();
-  glFinish();
   m_game_timer.t_finish_render = SDL_GetPerformanceCounter();
 }

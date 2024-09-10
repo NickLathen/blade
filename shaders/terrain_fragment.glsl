@@ -3,20 +3,16 @@ precision highp float;
 
 in vec3 worldPos;
 in vec2 texCoords;
-in vec2 terrainCoords;
+in vec2 heightmapCoords;
 in vec4 lightSpacePosition;
 flat in uint materialIdx;
 out vec4 FragColor;
 
 uniform sampler2DShadow uDepthTexture;
 uniform sampler2D uDiffuseTexture;
-uniform sampler2D uBlendTexture;
 uniform sampler2D uNoiseTexture;
 uniform sampler2D uHeightmapTexture;
-uniform sampler2D uVeryHighTexture;
-uniform sampler2D uHighTexture;
-uniform sampler2D uMediumTexture;
-uniform sampler2D uLowTexture;
+uniform sampler2DArray uBlendTexture;
 
 uniform mat4 uModelMatrix;
 uniform vec3 uAmbientLightColor;
@@ -83,24 +79,23 @@ float CalcShadowFactor(vec4 position, float bias) {
   return ((1.0 - kShadowStrength) + (shadowFactor * kShadowStrength) / kernelSize);
 }
 
-float SampleNoise(vec2 st) {
-  return texture(uNoiseTexture, st).x;
-}
-
 vec2 ScaleToCenter(vec2 coords, float scale) {
   return coords + (0.5f - coords) * scale;
 }
 
-vec2 TransformTexCoords(vec2 texCoords, TileConfig tc) {
+vec2 ApplyTexTileConfig(vec2 texCoords, TileConfig tc, sampler2D noiseTexture) {
   vec2 scaledCoords = texCoords * tc.repeat_scale;
   vec2 tileCoords = floor(scaledCoords);
   vec2 noiseCoords = tileCoords / tc.repeat_scale;
   noiseCoords = ScaleToCenter(noiseCoords, 0.5f);
-  vec2 localCoords = scaledCoords - tileCoords;
-  float angle = SampleNoise((noiseCoords - 0.2f) * tc.noise_scale) * tc.rotation_scale;
-  float translationX = SampleNoise(noiseCoords * tc.noise_scale) * tc.translation_scale;
-  float translationY = SampleNoise((noiseCoords + 0.2f) * tc.noise_scale) * tc.translation_scale;
+  vec2 angleNoiseCoords = (noiseCoords - 0.2f) * tc.noise_scale;
+  vec2 xNoiseCoords = noiseCoords * tc.noise_scale;
+  vec2 yNoiseCoords = (noiseCoords + 0.2f) * tc.noise_scale;
+  float angle =        texture(noiseTexture, angleNoiseCoords) * tc.rotation_scale;
+  float translationX = texture(noiseTexture, xNoiseCoords)     * tc.translation_scale;
+  float translationY = texture(noiseTexture, yNoiseCoords)     * tc.translation_scale;
   mat2 rotation = mat2(cos(angle), sin(angle), -sin(angle), cos(angle));
+  vec2 localCoords = scaledCoords - tileCoords;
   vec2 rotatedCoords = rotation * (localCoords - 0.5) + 0.5;
   vec2 finalCoords = rotatedCoords + vec2(translationX, translationY);
   return finalCoords;
@@ -140,28 +135,29 @@ vec4 AdjustBrightness(vec4 color, float brightness) {
   return vec4(clamp(adjustedColor, 0.0, 1.0), color.a);
 }
 
-vec4 TransformTexColor(vec4 color, vec2 texCoords, TileConfig tc) {
+vec4 TransformTexColor(vec4 color, vec2 texCoords, TileConfig tc, sampler2D noiseTexture) {
   vec2 noiseCoords = ScaleToCenter(texCoords, 0.5f);
   vec4 colorOut = color;
-  float rHue = SampleNoise(noiseCoords + 0.1f);
+  float rHue = texture(noiseTexture, (noiseCoords + 0.1f));
   //saturation -1.0 to 0.0f (desaturate only)
-  float rSaturation = -SampleNoise(noiseCoords - 0.1f);
+  float rSaturation = -texture(noiseTexture, (noiseCoords - 0.1f));
   //brightness -.5 to +.5
-  float rBrightness = SampleNoise(noiseCoords + 0.2f) - 0.5f;
+  float rBrightness = texture(noiseTexture, (noiseCoords + 0.2f) - 0.5f);
   colorOut = AdjustHue(colorOut, tc.hue_scale * rHue);
   colorOut = AdjustSaturation(colorOut, clamp(1.0f + tc.saturation_scale * rSaturation, 0.0, 1.0));
   colorOut = AdjustBrightness(colorOut, 1.0f + tc.brightness_scale * rBrightness);
   return colorOut;
 }
 
-vec3 GetGradient(sampler2D tex, vec2 coords, float coordsScale) {
-  float texelSize = 1.0 / float(textureSize(uDepthTexture, 0));
-  float epsilon = 10.0f * texelSize;
-  float gradScale = coordsScale / epsilon / 2.0f;
-  float heightRight  = texture(tex, coords + vec2(epsilon, 0.0)).r;
+//coordsScale tells us how to scale texture coordinates to world coordinates
+vec3 GetTexGradient(sampler2D tex, vec2 coords, float coordsScale, float sampleWidth) {
+  float texelSize = 1.0 / float(textureSize(tex, 0));
+  float epsilon = sampleWidth * texelSize;
+  float gradScale = coordsScale / (epsilon * 2.0f);
+  float heightRight = texture(tex, coords + vec2(epsilon, 0.0)).r;
   float heightLeft  = texture(tex, coords + vec2(-epsilon, 0.0)).r;
-  float heightUp     = texture(tex, coords + vec2(0.0, epsilon)).r;
-  float heightDown     = texture(tex, coords + vec2(0.0, -epsilon)).r;
+  float heightUp    = texture(tex, coords + vec2(0.0, epsilon)).r;
+  float heightDown  = texture(tex, coords + vec2(0.0, -epsilon)).r;
   float dy_dx = -(heightRight - heightLeft) * gradScale;
   float dy_dz = (heightUp - heightDown) * gradScale;
   return normalize(vec3(dy_dx, 1.0f, dy_dz));
@@ -172,7 +168,7 @@ void main() {
   Material material = uMaterial.materials[materialIdx];
 
   float coordsScale = tc.height_scale / tc.width_scale / tc.grid_scale;
-  vec3 normalDir = GetGradient(uHeightmapTexture, terrainCoords, coordsScale);
+  vec3 normalDir = GetTexGradient(uHeightmapTexture, heightmapCoords, coordsScale, 10.0f);
   normalDir = mat3(uModelMatrix) * normalDir;
 
   vec3 lightDir = normalize(uLightDir);
@@ -189,13 +185,8 @@ void main() {
   specularFactor = pow(specularFactor, uSpecularPower) * shininess;
   
   //apply texture scaling/displacement
-  vec2 transformedCoords = TransformTexCoords(texCoords, tc);
+  vec2 transformedCoords = ApplyTexTileConfig(texCoords, tc, uNoiseTexture);
   vec2 noiseCoords = ScaleToCenter(texCoords, 0.5f);
-  //apply texture blending
-  // vec4 color = mix(texture(uDiffuseTexture, transformedCoords),
-  //                  texture(uBlendTexture, transformedCoords),
-  //                  SampleNoise(noiseCoords - 0.25f)
-  //                 );
   vec4 color = vec4(0.0f);
   float normalized_height = worldPos.y / tc.height_scale;
   float kHighThreshold = 0.75;
@@ -204,24 +195,24 @@ void main() {
   
   if (normalized_height > kHighThreshold) {
     float frac = (normalized_height - kHighThreshold) / (1.0 - kHighThreshold);
-    color = mix(texture(uHighTexture, transformedCoords),
-                texture(uVeryHighTexture, transformedCoords),
+    color = mix(texture(uBlendTexture, vec3(transformedCoords, 1.0)),
+                texture(uBlendTexture, vec3(transformedCoords, 0.0)),
                 frac);
   } else if (normalized_height > kMediumThreshold) {
     float frac = (normalized_height - kMediumThreshold) / (kHighThreshold - kMediumThreshold);
-    color = mix(texture(uMediumTexture, transformedCoords),
-                texture(uHighTexture, transformedCoords),
+    color = mix(texture(uBlendTexture, vec3(transformedCoords, 2.0)),
+                texture(uBlendTexture, vec3(transformedCoords, 1.0)),
                 frac);
   } else if (normalized_height > kLowThreshold) {
     float frac = (normalized_height - kLowThreshold) / (kMediumThreshold - kLowThreshold);
-    color = mix(texture(uLowTexture, transformedCoords),
-                texture(uMediumTexture, transformedCoords),
+    color = mix(texture(uBlendTexture, vec3(transformedCoords, 3.0)),
+                texture(uBlendTexture, vec3(transformedCoords, 2.0)),
                 frac);
   } else {
-    color = texture(uLowTexture, transformedCoords);
+    color = texture(uBlendTexture, vec3(transformedCoords, 3.0));
   }
   //apply texture color variation
-  color = TransformTexColor(color, texCoords, tc);
+  color = TransformTexColor(color, texCoords, tc, uNoiseTexture);
   //apply lighting
   vec3 ambientColor = uAmbientLightColor * material.ambientColor * color.xyz;
   vec3 litColor = diffuseColor * color.xyz +

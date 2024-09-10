@@ -306,13 +306,9 @@ public:
                                  GL_DYNAMIC_DRAW);
     m_shader.Uniform1i("uDepthTexture", m_depth_texture);
     m_shader.Uniform1i("uDiffuseTexture", m_diffuse_texture);
-    m_shader.Uniform1i("uBlendTexture", m_blend_texture);
     m_shader.Uniform1i("uNoiseTexture", m_noise_texture);
     m_shader.Uniform1i("uHeightmapTexture", m_heightmap_texture);
-    m_shader.Uniform1i("uVeryHighTexture", m_very_high_texture);
-    m_shader.Uniform1i("uHighTexture", m_high_texture);
-    m_shader.Uniform1i("uMediumTexture", m_medium_texture);
-    m_shader.Uniform1i("uLowTexture", m_low_texture);
+    m_shader.Uniform1i("uBlendTexture", m_blend_texture);
     glUseProgram(0);
 
     m_depth_shader.UseProgram();
@@ -330,7 +326,6 @@ public:
         m_tile_config_ubo{std::move(other.m_tile_config_ubo)},
         m_depth_texture{other.m_depth_texture},
         m_diffuse_texture{other.m_diffuse_texture},
-        m_blend_texture{other.m_blend_texture},
         m_noise_texture{other.m_noise_texture},
         m_heightmap_texture{other.m_heightmap_texture},
         m_material_block_binding{other.m_material_block_binding},
@@ -384,19 +379,11 @@ public:
   void BindMaterialsBuffer(const UBO &ubo) const {
     ubo.BindBufferBase(m_material_block_binding);
   }
-  void BindTexture(const RPTexture &texture,
-                   const GLuint texture_location) const {
-    glActiveTexture(GL_TEXTURE0 + texture_location);
-    texture.BindTexture(GL_TEXTURE_2D);
-  }
   void BindDepthTexture(const RPTexture &texture) const {
     BindTexture(texture, m_depth_texture);
   }
   void BindDiffuseTexture(const RPTexture &texture) const {
     BindTexture(texture, m_diffuse_texture);
-  }
-  void BindBlendTexture(const RPTexture &texture) const {
-    BindTexture(texture, m_blend_texture);
   }
   void BindNoiseTexture(const RPTexture &texture) const {
     BindTexture(texture, m_noise_texture);
@@ -404,17 +391,8 @@ public:
   void BindHeightmapTexture(const RPTexture &texture) const {
     BindTexture(texture, m_heightmap_texture);
   }
-  void BindVeryHighTexture(const RPTexture &texture) const {
-    BindTexture(texture, m_very_high_texture);
-  }
-  void BindHighTexture(const RPTexture &texture) const {
-    BindTexture(texture, m_high_texture);
-  }
-  void BindMediumTexture(const RPTexture &texture) const {
-    BindTexture(texture, m_medium_texture);
-  }
-  void BindLowTexture(const RPTexture &texture) const {
-    BindTexture(texture, m_low_texture);
+  void BindBlendTexture(const RPTexture &texture) const {
+    Bind2DArrayTexture(texture, m_blend_texture);
   }
 
 private:
@@ -423,18 +401,25 @@ private:
   UBO m_tile_config_ubo;
   const GLuint m_depth_texture{0};
   const GLuint m_diffuse_texture{1};
-  const GLuint m_blend_texture{2};
-  const GLuint m_noise_texture{3};
-  const GLuint m_heightmap_texture{4};
-  const GLuint m_very_high_texture{5};
-  const GLuint m_high_texture{6};
-  const GLuint m_medium_texture{7};
-  const GLuint m_low_texture{8};
+  const GLuint m_noise_texture{2};
+  const GLuint m_heightmap_texture{3};
+  const GLuint m_blend_texture{4};
   const GLuint m_material_block_binding{0};
   const GLuint m_tile_config_block_binding{1};
 
   GLboolean g_depth_test, g_cull_face;
   GLint g_cull_face_mode, g_front_face;
+
+  void BindTexture(const RPTexture &texture,
+                   const GLuint texture_location) const {
+    glActiveTexture(GL_TEXTURE0 + texture_location);
+    texture.BindTexture(GL_TEXTURE_2D);
+  }
+  void Bind2DArrayTexture(const RPTexture &texture,
+                          const GLuint texture_location) const {
+    glActiveTexture(GL_TEXTURE0 + texture_location);
+    texture.BindTexture(GL_TEXTURE_2D_ARRAY);
+  }
 };
 
 class RPMaterial {

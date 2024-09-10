@@ -27,49 +27,55 @@ layout(std140) uniform uTileConfigBlock {
 
 layout (location = 0) in uint aMaterialIdx;
 
-
 out vec3 worldPos;
 out vec2 texCoords;
-out vec2 terrainCoords;
+out vec2 heightmapCoords;
 out vec4 lightSpacePosition;
 flat out uint materialIdx;
 
-vec3 GetTerrainPosition(vec2 texCoords, float gridScale) {
-  return vec3(
-    (texCoords.x - 0.5f) * gridScale,
-    0.0f,
-    -(texCoords.y - 0.5f) * gridScale
-  );
+ivec2 GetVertGridCoords(int vertexId, int resolution) {
+  int gridWidth = resolution * 2 + 2;
+  int vertX = vertexId % gridWidth;
+  int vertY = vertexId / gridWidth;
+  if (vertX < gridWidth - 2) {
+    return ivec2(vertX / 2, vertY + vertX % 2);
+  } else if (vertX == gridWidth - 2) {
+    return ivec2(resolution - 1, vertY + 1);
+  } else if (vertX == gridWidth - 1) {
+    return ivec2(0, vertY + 1);
+  }
 }
 
-vec2 GetGridTexCoords(int i, int j, int resolution) {
-  return vec2(
-    float(j) / float(resolution),
-    float(i) / float(resolution)
+vec2 GetVertTexCoords(TileConfig tc, int vertexId) {
+  ivec2 gridCoords = GetVertGridCoords(vertexId, tc.resolution);
+  float resolution = float(tc.resolution);
+  vec2 halfTexel = vec2(0.5 / resolution, 0.5 / resolution);
+  return (vec2(gridCoords) / resolution) + halfTexel;
+}
+
+vec2 GetHeightmapCoords(TileConfig tc, vec2 texCoords) {
+  return texCoords * tc.width_scale;
+}
+
+vec3 GetTerrainPosition(TileConfig tc, vec2 texCoords, sampler2D heightmap, vec2 heightmapCoords) {
+  float height = texture(heightmap, heightmapCoords).r;
+  height *= tc.height_scale;
+  return vec3(
+    (texCoords.x - 0.5) * tc.grid_scale,
+    height,
+    (texCoords.y - 0.5) * tc.grid_scale
   );
 }
 
 void main() {
   TileConfig tc = uTileConfig.tileConfig;
   //texCoords -> aPos
-  int rowWidth = tc.resolution * 2 + 2;
-  int row = gl_VertexID / rowWidth;
-  int rowVert = gl_VertexID % rowWidth;
-  if (rowVert < rowWidth - 2) {
-    texCoords = GetGridTexCoords(rowVert / 2, row + rowVert % 2, tc.resolution);
-  } else if (rowVert == rowWidth - 2) {
-    texCoords = GetGridTexCoords(tc.resolution - 1, row + 1, tc.resolution);
-  } else if (rowVert == rowWidth - 1) {
-    texCoords = GetGridTexCoords(0, row + 1, tc.resolution);
-  }
-  vec3 aPos = GetTerrainPosition(texCoords, tc.grid_scale);
-  terrainCoords = texCoords * tc.width_scale;
-  float height = texture(uHeightmapTexture, terrainCoords).r;
-  height *= tc.height_scale;
-  vec3 position = vec3(aPos.x, height, aPos.z);
-  worldPos = (uModelMatrix * vec4(position, 1.0)).xyz;
+  texCoords = GetVertTexCoords(tc, gl_VertexID);
+  heightmapCoords = GetHeightmapCoords(tc, texCoords);
+  vec3 aPos = GetTerrainPosition(tc, texCoords, uHeightmapTexture, heightmapCoords);
+  worldPos = (uModelMatrix * vec4(aPos, 1.0)).xyz;
   materialIdx = aMaterialIdx;
-  gl_Position = uMVP * vec4(position, 1.0);
-  lightSpacePosition = uLightMVP * vec4(position, 1.0);
+  gl_Position = uMVP * vec4(aPos, 1.0);
+  lightSpacePosition = uLightMVP * vec4(aPos, 1.0);
 }
  
