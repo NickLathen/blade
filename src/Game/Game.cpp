@@ -176,15 +176,14 @@ void FIRFilter(std::vector<float> &buffer, float factor,
 }
 
 void FaultFormation(std::vector<float> &buffer, int texture_size,
-                    float min_height, float max_height, int gen_iterations) {
+                    int gen_iterations) {
   std::random_device rd;
   std::mt19937 gen(rd());
   std::uniform_int_distribution<> distrib(0, texture_size - 1);
 
-  float delta_height = max_height - min_height;
   for (int i = 0; i < gen_iterations; i++) {
     float i_frac = float(i) / float(gen_iterations);
-    float height = max_height - i_frac * delta_height;
+    float height = 1.0 - i_frac;
     glm::ivec2 p1{distrib(gen), distrib(gen)};
     glm::ivec2 p2{distrib(gen), distrib(gen)};
     glm::ivec2 dir{p2 - p1};
@@ -200,18 +199,14 @@ void FaultFormation(std::vector<float> &buffer, int texture_size,
   }
 }
 
-std::vector<float>
-GenerateFaultFormationHeightMap(int texture_size, float min_height,
-                                float max_height, int gen_iterations,
-                                int smooth_iterations, float smooth_factor) {
+std::vector<float> GenerateFaultFormationHeightMap(int texture_size,
+                                                   int gen_iterations,
+                                                   int smooth_iterations,
+                                                   float smooth_factor) {
   std::vector<float> heightmap_buffer(texture_size * texture_size);
 
-  // Generate
-  FaultFormation(heightmap_buffer, texture_size, min_height, max_height,
-                 gen_iterations);
-
-  // Normalize
-  MapToRange(heightmap_buffer, 0, 1.0);
+  // FaultFormation
+  FaultFormation(heightmap_buffer, texture_size, gen_iterations);
 
   // Smooth
   for (int i = 0; i < smooth_iterations; i++) {
@@ -224,12 +219,14 @@ GenerateFaultFormationHeightMap(int texture_size, float min_height,
     FIRFilter(heightmap_buffer, smooth_factor, FD_RIGHT, texture_size,
               texture_size);
   }
+
+  // Normalize
+  MapToRange(heightmap_buffer, 0, 1.0);
+
   return heightmap_buffer;
 }
 
-RPTexture FaultFormationTexture(int texture_size, float min_height,
-                                float max_height, int gen_iterations,
-                                int smooth_iterations, float smooth_factor) {
+RPTexture HeightmapTexture(int texture_size, const std::vector<float> &buffer) {
   RPTexture texture{};
   texture.BindTexture(GL_TEXTURE_2D);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -238,23 +235,131 @@ RPTexture FaultFormationTexture(int texture_size, float min_height,
                   GL_LINEAR_MIPMAP_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-  std::vector<float> heightmap_buffer{GenerateFaultFormationHeightMap(
-      texture_size, min_height, max_height, gen_iterations, smooth_iterations,
-      smooth_factor)};
-
   glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, texture_size, texture_size, 0, GL_RED,
-               GL_FLOAT, &heightmap_buffer[0]);
+               GL_FLOAT, &buffer[0]);
   glGenerateMipmap(GL_TEXTURE_2D);
   return texture;
+}
+
+RPTexture FaultFormationTexture(int texture_size, int gen_iterations,
+                                int smooth_iterations, float smooth_factor) {
+  std::vector<float> fault_formation_buffer{GenerateFaultFormationHeightMap(
+      texture_size, gen_iterations, smooth_iterations, smooth_factor)};
+  return HeightmapTexture(texture_size, fault_formation_buffer);
 };
 
-void RegenerateTerrain(RPTexture &tex) {
-  std::vector<float> heightmap_buffer{
-      GenerateFaultFormationHeightMap(512, 0.0f, 1.0f, 300, 50, 0.3)};
-  tex.BindTexture(GL_TEXTURE_2D);
-  glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 512, 512, GL_RED, GL_FLOAT,
-                  &heightmap_buffer[0]);
-  glGenerateMipmap(GL_TEXTURE_2D);
+void DiamondStep(std::vector<float> &buffer, int texture_size, int rect_size,
+                 float cur_height) {
+  std::random_device rd;
+  std::mt19937 gen(rd());
+  std::uniform_real_distribution<> distrib(-cur_height, cur_height);
+  int half_rect_size = rect_size / 2;
+  for (int y = 0; y < texture_size; y += rect_size) {
+    for (int x = 0; x < texture_size; x += rect_size) {
+      int next_x = (x + rect_size) % texture_size;
+      int next_y = (y + rect_size) % texture_size;
+
+      if (next_x < x) {
+        next_x = texture_size - 1;
+      }
+      if (next_y < y) {
+        next_y = texture_size - 1;
+      }
+      float top_left = buffer[x + texture_size * y];
+      float top_right = buffer[next_x + texture_size * y];
+      float bottom_left = buffer[x + texture_size * next_y];
+      float bottom_right = buffer[next_x + texture_size * next_y];
+
+      int mid_x = (x + half_rect_size) % texture_size;
+      int mid_y = (y + half_rect_size) % texture_size;
+
+      float rand_value = distrib(gen);
+      float mid_point =
+          (top_left + top_right + bottom_left + bottom_right) / 4.0f;
+      buffer[mid_x + texture_size * mid_y] = mid_point + rand_value;
+    }
+  }
+}
+void SquareStep(std::vector<float> &buffer, int texture_size, int rect_size,
+                float cur_height) {
+  std::random_device rd;
+  std::mt19937 gen(rd());
+  std::uniform_real_distribution<> distrib(-cur_height, cur_height);
+  int half_rect_size = rect_size / 2;
+
+  for (int y = 0; y < texture_size; y += rect_size) {
+    for (int x = 0; x < texture_size; x += rect_size) {
+      int next_x = (x + rect_size) % texture_size;
+      int next_y = (y + rect_size) % texture_size;
+
+      if (next_x < x) {
+        next_x = texture_size - 1;
+      }
+
+      if (next_y < y) {
+        next_y = texture_size - 1;
+      }
+
+      int mid_x = (x + half_rect_size) % texture_size;
+      int mid_y = (y + half_rect_size) % texture_size;
+
+      int prev_mid_x = (x - half_rect_size + texture_size) % texture_size;
+      int prev_mid_y = (y - half_rect_size + texture_size) % texture_size;
+
+      float cur_top_left = buffer[x + texture_size * y];
+      float cur_top_right = buffer[next_x + texture_size * y];
+      float cur_center = buffer[mid_x + texture_size * mid_y];
+      float prev_y_center = buffer[mid_x + texture_size * prev_mid_y];
+      float cur_bot_left = buffer[x + texture_size * next_y];
+      float prev_x_center = buffer[prev_mid_x + texture_size * mid_y];
+
+      float cur_left_mid =
+          (cur_top_left + cur_center + cur_bot_left + prev_x_center) / 4.0f +
+          distrib(gen);
+      float cur_top_mid =
+          (cur_top_left + cur_center + cur_top_right + prev_y_center) / 4.0f +
+          distrib(gen);
+
+      buffer[mid_x + texture_size * y] = cur_top_mid;
+      buffer[x + texture_size * mid_y] = cur_left_mid;
+    }
+  }
+}
+
+std::vector<float> GenerateMidpointDisplacmentHeightMap(int texture_size) {
+  std::vector<float> buffer(texture_size * texture_size);
+  float kRoughness = 1.0f;
+  int rect_size = texture_size;
+  float cur_height = rect_size / 2.0f;
+  float height_reduce = pow(2.0f, -kRoughness);
+
+  while (rect_size > 0) {
+    // Diamond Step
+    DiamondStep(buffer, texture_size, rect_size, cur_height);
+    // Square Step
+    SquareStep(buffer, texture_size, rect_size, cur_height);
+
+    rect_size /= 2;
+    cur_height *= height_reduce;
+  }
+
+  // Smooth
+  int kSmoothIterations = 5;
+  float kSmoothFactor = 0.5;
+  for (int i = 0; i < kSmoothIterations; i++) {
+    FIRFilter(buffer, kSmoothFactor, FD_UP, texture_size, texture_size);
+    FIRFilter(buffer, kSmoothFactor, FD_DOWN, texture_size, texture_size);
+    FIRFilter(buffer, kSmoothFactor, FD_LEFT, texture_size, texture_size);
+    FIRFilter(buffer, kSmoothFactor, FD_RIGHT, texture_size, texture_size);
+  }
+
+  MapToRange(buffer, 0, 1.0);
+  return buffer;
+};
+
+RPTexture DisplacementTexture(int texture_size) {
+  return HeightmapTexture(texture_size,
+                          GenerateMidpointDisplacmentHeightMap(texture_size));
 }
 
 void RenderGui(const GameTimer &game_timer, Camera &camera, Light &light,
@@ -308,6 +413,19 @@ void RenderGui(const GameTimer &game_timer, Camera &camera, Light &light,
   ImGui::End();
 }
 
+int kDepthMapSize = 1024;
+int kHeightMapSize = 1024;
+int kNoiseTextureSize = 512;
+
+void RegenerateTerrain(RPTexture &tex) {
+  std::vector<float> heightmap_buffer{
+      GenerateMidpointDisplacmentHeightMap(kHeightMapSize)};
+  tex.BindTexture(GL_TEXTURE_2D);
+  glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, kHeightMapSize, kHeightMapSize,
+                  GL_RED, GL_FLOAT, &heightmap_buffer[0]);
+  glGenerateMipmap(GL_TEXTURE_2D);
+}
+
 Game::Game(Platform *platform) : m_platform{platform} {
   // m_textures.emplace_back(
   // LoadTexture("assets/textures/eight_square_test/eight_square_test.png"));
@@ -316,8 +434,8 @@ Game::Game(Platform *platform) : m_platform{platform} {
                   "Poliigon_GrassPatchyGround_4585_BaseColor.jpg"));
   m_textures.emplace_back(LoadTexture(
       "assets/textures/GroundDirtRocky020/GroundDirtRocky020_COL_2K.jpg"));
-  m_textures.emplace_back(NoiseTexture(512, 100.0f, 100.0f));
-  m_textures.emplace_back(FaultFormationTexture(512, 0.0f, 1.0f, 300, 50, 0.3));
+  m_textures.emplace_back(NoiseTexture(kNoiseTextureSize, 100.0f, 100.0f));
+  m_textures.emplace_back(DisplacementTexture(kHeightMapSize));
   m_textures.emplace_back(LoadTexture("assets/textures/ogldev/water.png"));
   m_textures.emplace_back(
       LoadTexture("assets/textures/ogldev/tilable-IMG_0044-verydark.png"));
@@ -329,13 +447,13 @@ Game::Game(Platform *platform) : m_platform{platform} {
   m_rp_material.emplace_back(m_mesh_groups[0].GetMaterials(),
                              m_mesh_groups[0].GetVertexBuffer(),
                              m_mesh_groups[0].GetElementBuffer());
-  m_rp_depth_map.emplace_back(1024);
+  m_rp_depth_map.emplace_back(kDepthMapSize);
   m_rp_tex.emplace_back();
   m_rp_icon.emplace_back();
   m_rp_terrain.emplace_back();
   m_material_shader.emplace_back();
   m_terrain_shader.emplace_back();
-  float kGridScale = 250.0f;
+  float kGridScale = 200.0f;
   m_light = {
       .ambient_color = {0.3f, 0.3f, 0.3f},
       .direction = {glm::normalize(glm::vec3(-0.2f, 0.2f, 0.2f))},
@@ -343,8 +461,9 @@ Game::Game(Platform *platform) : m_platform{platform} {
       .static_distance = M_SQRT2f32 * 2.0f * kGridScale,
       .static_fov = 30.0f,
   };
-  glm::vec3 initial_camera_position{0.0f, kGridScale / 2.0f, kGridScale / 2.0f};
-  glm::vec3 initial_camera_target{0.0, kGridScale / 4.0f, 0.0};
+  glm::vec3 initial_camera_position{kGridScale / 2.0f, kGridScale / 2.0f,
+                                    -kGridScale / 2.0f};
+  glm::vec3 initial_camera_target{0.0, kGridScale / 8.0, 0.0};
   glm::mat4 transform{glm::lookAt(initial_camera_position,
                                   initial_camera_target, glm::vec3{0, 1, 0})};
   glm::vec2 drawable_size{m_platform->GetDrawableSize()};
@@ -358,10 +477,10 @@ Game::Game(Platform *platform) : m_platform{platform} {
       glm::rotate(glm::mat4(1.0f), -1.0f, glm::vec3(0.0, 1.0, 0.0));
   m_terrain_matrix = glm::mat4(1.0f);
   m_tile_config = {
-      .height_scale = kGridScale / 3.0f,
+      .height_scale = kGridScale / 4.0f,
       .width_scale = 1.0f,
       .grid_scale = kGridScale,
-      .resolution = 256,
+      .resolution = 512,
       .repeat_scale = kGridScale / 25.0f,
       .rotation_scale = 100.0f,
       .translation_scale = 10.0f,

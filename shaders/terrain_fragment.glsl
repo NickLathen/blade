@@ -198,9 +198,9 @@ void main() {
   //                 );
   vec4 color = vec4(0.0f);
   float normalized_height = worldPos.y / tc.height_scale;
-  float kHighThreshold = 0.6;
-  float kMediumThreshold = 0.4;
-  float kLowThreshold = 0.2;
+  float kHighThreshold = 0.75;
+  float kMediumThreshold = 0.5;
+  float kLowThreshold = 0.25;
   
   if (normalized_height > kHighThreshold) {
     float frac = (normalized_height - kHighThreshold) / (1.0 - kHighThreshold);
