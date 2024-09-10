@@ -38,19 +38,23 @@ ivec2 GetVertGridCoords(int vertexId, int resolution) {
   int vertX = vertexId % gridWidth;
   int vertY = vertexId / gridWidth;
   if (vertX < gridWidth - 2) {
-    return ivec2(vertX / 2, vertY + vertX % 2);
+    return ivec2(vertX / 2, vertY + 1 - vertX % 2);
   } else if (vertX == gridWidth - 2) {
-    return ivec2(resolution - 1, vertY + 1);
+    return ivec2(resolution - 1, vertY);
   } else if (vertX == gridWidth - 1) {
-    return ivec2(0, vertY + 1);
+    return ivec2(0, vertY + 2);
   }
+}
+
+vec2 GetGridTexCoords(ivec2 gridCoords, int resolution) {
+  float fResolution = float(resolution);
+  vec2 halfTexel = vec2(0.5 / fResolution, 0.5 / fResolution);
+  return (vec2(gridCoords) / fResolution) + halfTexel;
 }
 
 vec2 GetVertTexCoords(TileConfig tc, int vertexId) {
   ivec2 gridCoords = GetVertGridCoords(vertexId, tc.resolution);
-  float resolution = float(tc.resolution);
-  vec2 halfTexel = vec2(0.5 / resolution, 0.5 / resolution);
-  return (vec2(gridCoords) / resolution) + halfTexel;
+  return GetGridTexCoords(gridCoords, tc.resolution);
 }
 
 vec2 GetHeightmapCoords(TileConfig tc, vec2 texCoords) {
@@ -63,7 +67,7 @@ vec3 GetTerrainPosition(TileConfig tc, vec2 texCoords, sampler2D heightmap, vec2
   return vec3(
     (texCoords.x - 0.5) * tc.grid_scale,
     height,
-    (texCoords.y - 0.5) * tc.grid_scale
+    -(texCoords.y - 0.5) * tc.grid_scale
   );
 }
 

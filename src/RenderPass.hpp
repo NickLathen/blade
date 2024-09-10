@@ -297,32 +297,40 @@ public:
       : m_shader{"shaders/terrain_vertex.glsl",
                  "shaders/terrain_fragment.glsl"},
         m_depth_shader{"shaders/terrain_vertex.glsl",
-                       "shaders/depth_map_fragment.glsl"} {
+                       "shaders/depth_map_fragment.glsl"},
+        m_depth_skirt_shader{"shaders/terrain_skirt_vertex.glsl",
+                             "shaders/depth_map_fragment.glsl"} {
+
+    m_tile_config_ubo.BufferData(sizeof(TextureTileConfig), NULL,
+                                 GL_DYNAMIC_DRAW);
+
     m_shader.UseProgram();
     m_shader.UniformBlockBinding("uMaterialBlock", m_material_block_binding);
     m_shader.UniformBlockBinding("uTileConfigBlock",
                                  m_tile_config_block_binding);
-    m_tile_config_ubo.BufferData(sizeof(TextureTileConfig), NULL,
-                                 GL_DYNAMIC_DRAW);
     m_shader.Uniform1i("uDepthTexture", m_depth_texture);
     m_shader.Uniform1i("uDiffuseTexture", m_diffuse_texture);
     m_shader.Uniform1i("uNoiseTexture", m_noise_texture);
     m_shader.Uniform1i("uHeightmapTexture", m_heightmap_texture);
     m_shader.Uniform1i("uBlendTexture", m_blend_texture);
-    glUseProgram(0);
 
     m_depth_shader.UseProgram();
     m_depth_shader.UniformBlockBinding("uTileConfigBlock",
                                        m_tile_config_block_binding);
-    m_tile_config_ubo.BufferData(sizeof(TextureTileConfig), NULL,
-                                 GL_DYNAMIC_DRAW);
     m_depth_shader.Uniform1i("uHeightmapTexture", m_heightmap_texture);
+
+    m_depth_skirt_shader.UseProgram();
+    m_depth_skirt_shader.UniformBlockBinding("uTileConfigBlock",
+                                             m_tile_config_block_binding);
+    m_depth_skirt_shader.Uniform1i("uHeightmapTexture", m_heightmap_texture);
+
     glUseProgram(0);
   };
   NEVER_COPY(RPTerrainShader);
   RPTerrainShader(RPTerrainShader &&other)
       : m_shader{std::move(other.m_shader)},
         m_depth_shader{std::move(other.m_depth_shader)},
+        m_depth_skirt_shader{std::move(other.m_depth_skirt_shader)},
         m_tile_config_ubo{std::move(other.m_tile_config_ubo)},
         m_depth_texture{other.m_depth_texture},
         m_diffuse_texture{other.m_diffuse_texture},
@@ -352,6 +360,8 @@ public:
   }
   void BeginDepth() { m_depth_shader.UseProgram(); }
   void EndDepth() { glUseProgram(0); }
+  void BeginDepthSkirt() { m_depth_skirt_shader.UseProgram(); }
+  void EndDepthSkirt() { glUseProgram(0); }
   void SetUniforms(const glm::vec3 &camera_pos, const Light &light,
                    const TextureTileConfig &tileConfig, const glm::mat4 &mvp,
                    const glm::mat4 &light_mvp,
@@ -373,6 +383,12 @@ public:
                         const glm::mat4 &mvp, const glm::mat4 &model_matrix) {
     m_depth_shader.UniformMatrix4fv("uMVP", GL_FALSE, mvp);
     m_depth_shader.UniformMatrix4fv("uModelMatrix", GL_FALSE, model_matrix);
+    m_tile_config_ubo.BufferSubData(0, sizeof(tileConfig), &tileConfig);
+    m_tile_config_ubo.BindBufferBase(m_tile_config_block_binding);
+  };
+  void setDepthSkirtUniforms(const TextureTileConfig &tileConfig,
+                             const glm::mat4 &mvp) {
+    m_depth_skirt_shader.UniformMatrix4fv("uMVP", GL_FALSE, mvp);
     m_tile_config_ubo.BufferSubData(0, sizeof(tileConfig), &tileConfig);
     m_tile_config_ubo.BindBufferBase(m_tile_config_block_binding);
   };
@@ -398,6 +414,7 @@ public:
 private:
   Shader m_shader;
   Shader m_depth_shader;
+  Shader m_depth_skirt_shader;
   UBO m_tile_config_ubo;
   const GLuint m_depth_texture{0};
   const GLuint m_diffuse_texture{1};
@@ -473,6 +490,7 @@ public:
   RPTerrain(RPTerrain &&other)
       : m_vao{std::move(other.m_vao)}, m_ubo{std::move(other.m_ubo)} {};
   void DrawVertices(int num_vertices) const;
+  void DrawSkirt(int resolution) const;
   const UBO &GetMaterialsBuffer() const { return m_ubo; };
 
 private:

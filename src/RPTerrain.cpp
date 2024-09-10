@@ -17,3 +17,8 @@ void RPTerrain::DrawVertices(int resolution) const {
   glDrawArrays(GL_TRIANGLE_STRIP, 0, resolution * (resolution * 2 + 2));
   m_vao.Unbind();
 };
+void RPTerrain::DrawSkirt(int resolution) const {
+  m_vao.BindVertexArray();
+  glDrawArrays(GL_TRIANGLE_STRIP, 0, resolution * 2 * 4 + 4);
+  m_vao.Unbind();
+};

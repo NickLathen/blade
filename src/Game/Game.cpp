@@ -679,12 +679,16 @@ void Game::Render() {
   // m_material_shader[0].EndDepth();
 
   // #2 terrain
-  m_terrain_shader[0].BeginDepth();
   m_terrain_shader[0].BindHeightmapTexture(m_textures[3]);
+  m_terrain_shader[0].BeginDepth();
   m_terrain_shader[0].SetDepthUniforms(m_tile_config, terrain_light_vp,
                                        m_model_matrix);
   m_rp_terrain[0].DrawVertices(m_tile_config.resolution);
   m_terrain_shader[0].EndDepth();
+  m_terrain_shader[0].BeginDepthSkirt();
+  m_terrain_shader[0].setDepthSkirtUniforms(m_tile_config, terrain_light_vp);
+  m_rp_terrain[0].DrawSkirt(m_tile_config.resolution);
+  m_terrain_shader[0].EndDepthSkirt();
 
   // End Shadow Pass
   m_rp_depth_map[0].End();
