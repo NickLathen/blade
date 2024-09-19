@@ -52,25 +52,28 @@ inline void Shader::UniformBlockBinding(const std::string &block_name,
 
 inline void Shader::Uniform3fv(const std::string &name,
                                const glm::vec3 &value) const {
-  glUniform3fv(GetUniformLocation(name), 1, glm::value_ptr(value));
+
+  glProgramUniform3fv(m_program, GetUniformLocation(name), 1,
+                      glm::value_ptr(value));
 };
 inline void Shader::Uniform4fv(const std::string &name,
                                const glm::vec4 &value) const {
-  glUniform4fv(GetUniformLocation(name), 1, glm::value_ptr(value));
+  glProgramUniform4fv(m_program, GetUniformLocation(name), 1,
+                      glm::value_ptr(value));
 };
 inline void Shader::UniformMatrix4fv(const std::string &name,
                                      GLboolean transpose,
                                      const glm::mat4 &value) const {
-  glUniformMatrix4fv(GetUniformLocation(name), 1, transpose,
-                     glm::value_ptr(value));
+  glProgramUniformMatrix4fv(m_program, GetUniformLocation(name), 1, transpose,
+                            glm::value_ptr(value));
 };
 inline void Shader::Uniform1f(const std::string &name, float value) const {
-  glUniform1f(GetUniformLocation(name), value);
+  glProgramUniform1f(m_program, GetUniformLocation(name), value);
 };
 
 inline void Shader::Uniform1i(const std::string &name, GLint value) const {
-  glUniform1i(GetUniformLocation(name), value);
+  glProgramUniform1i(m_program, GetUniformLocation(name), value);
 };
 inline void Shader::Uniform1ui(const std::string &name, GLuint value) const {
-  glUniform1ui(GetUniformLocation(name), value);
+  glProgramUniform1ui(m_program, GetUniformLocation(name), value);
 };

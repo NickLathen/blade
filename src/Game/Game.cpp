@@ -369,7 +369,7 @@ void SquareStep(std::vector<float> &buffer, int texture_size, int rect_size,
   }
 }
 
-std::vector<float> GenerateMidpointDisplacmentHeightMap(int texture_size) {
+std::vector<float> GenerateMidpointDisplacementHeightMap(int texture_size) {
   std::vector<float> buffer(texture_size * texture_size);
   float kRoughness = 1.0f;
   int rect_size = texture_size;
@@ -387,7 +387,7 @@ std::vector<float> GenerateMidpointDisplacmentHeightMap(int texture_size) {
   }
 
   // Smooth
-  int kSmoothIterations = 0;
+  int kSmoothIterations = 3;
   float kSmoothFactor = 0.5;
   for (int i = 0; i < kSmoothIterations; i++) {
     FIRFilter(buffer, kSmoothFactor, FD_UP, texture_size, texture_size);
@@ -402,7 +402,7 @@ std::vector<float> GenerateMidpointDisplacmentHeightMap(int texture_size) {
 
 RPTexture DisplacementTexture(int texture_size) {
   return HeightmapTexture(texture_size,
-                          GenerateMidpointDisplacmentHeightMap(texture_size));
+                          GenerateMidpointDisplacementHeightMap(texture_size));
 }
 
 void RenderGui(const GameTimer &game_timer, Camera &camera, Light &light,
@@ -420,6 +420,8 @@ void RenderGui(const GameTimer &game_timer, Camera &camera, Light &light,
   ImGui::DragFloat3("camera.target", &camera.target[0], .01f, -10.0, 10.0f);
   ImGui::DragFloat3("light.direction", &light.direction[0], .01f, -10.0f,
                     10.0f);
+  ImGui::DragFloat3("light.ambient_color", &light.ambient_color[0], .1f, 0.0f,
+                    1.0f);
   ImGui::DragFloat("light.static_distance", &light.static_distance, .01f, 1.0f,
                    1000.0f);
   ImGui::DragFloat("light.static_fov", &light.static_fov, .01f, 1.0f, 120.0f);
@@ -457,12 +459,12 @@ void RenderGui(const GameTimer &game_timer, Camera &camera, Light &light,
 }
 
 int kDepthMapSize = 1024;
-int kHeightMapSize = 2048;
-int kNoiseTextureSize = 512;
+int kHeightMapSize = 256;
+int kNoiseTextureSize = 256;
 
 void RegenerateTerrain(RPTexture &tex) {
   std::vector<float> heightmap_buffer{
-      GenerateMidpointDisplacmentHeightMap(kHeightMapSize)};
+      GenerateMidpointDisplacementHeightMap(kHeightMapSize)};
   tex.BindTexture(GL_TEXTURE_2D);
   glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, kHeightMapSize, kHeightMapSize,
                   GL_RED, GL_FLOAT, &heightmap_buffer[0]);
@@ -480,10 +482,10 @@ Game::Game(Platform *platform) : m_platform{platform} {
   m_textures.emplace_back(NoiseTexture(kNoiseTextureSize, 100.0f, 100.0f));
   m_textures.emplace_back(DisplacementTexture(kHeightMapSize));
   m_textures.emplace_back(LoadTexture2DArray({
-      "assets/textures/ogldev/water.png",
-      "assets/textures/ogldev/tilable-IMG_0044-verydark.png",
-      "assets/textures/ogldev/IMGP5497_seamless.jpg",
-      "assets/textures/ogldev/IMGP5525_seamless.jpg",
+      "assets/textures/veryhigh/snow_02_diff_4k.jpg",
+      "assets/textures/high/forest_ground_04_diff_4k.jpg",
+      "assets/textures/medium/forest_ground_04_diff_4k.jpg",
+      "assets/textures/low/rocky_trail_diff_4k.jpg",
   }));
   m_mesh_groups.emplace_back(Import("assets/fullroom/fullroom.obj"));
   m_rp_material.emplace_back(m_mesh_groups[0].GetMaterials(),
@@ -497,7 +499,7 @@ Game::Game(Platform *platform) : m_platform{platform} {
   m_terrain_shader.emplace_back();
   float kGridScale = 200.0f;
   m_light = {
-      .ambient_color = {0.3f, 0.3f, 0.3f},
+      .ambient_color = {0.5f, 0.5f, 0.5f},
       .direction = {glm::normalize(glm::vec3(-0.2f, 0.2f, 0.2f))},
       .diffuse_color = {1.0f, 1.0f, 1.0f},
       .static_distance = M_SQRT2f32 * 2.0f * kGridScale,
@@ -672,21 +674,21 @@ void Game::Render() {
   m_rp_depth_map[0].Begin();
 
   // #1 models
-  // m_material_shader[0].BeginDepth();
-  // m_material_shader[0].SetDepthUniforms(model_light_vp, model_light_vp,
-  //                                       m_model_matrix);
-  // m_rp_material[0].DrawVertices();
-  // m_material_shader[0].EndDepth();
+  m_material_shader[0].BeginDepth();
+  m_material_shader[0].SetDepthUniforms(model_light_vp, model_light_vp,
+                                        m_model_matrix);
+  m_rp_material[0].DrawVertices();
+  m_material_shader[0].EndDepth();
 
   // #2 terrain
   m_terrain_shader[0].BindHeightmapTexture(m_textures[3]);
-  m_terrain_shader[0].BeginDepth();
   m_terrain_shader[0].SetDepthUniforms(m_tile_config, terrain_light_vp,
                                        m_model_matrix);
+  m_terrain_shader[0].BeginDepth();
   m_rp_terrain[0].DrawVertices(m_tile_config.resolution);
   m_terrain_shader[0].EndDepth();
-  m_terrain_shader[0].BeginDepthSkirt();
   m_terrain_shader[0].setDepthSkirtUniforms(m_tile_config, terrain_light_vp);
+  m_terrain_shader[0].BeginDepthSkirt();
   m_rp_terrain[0].DrawSkirt(m_tile_config.resolution);
   m_terrain_shader[0].EndDepthSkirt();
 
@@ -694,20 +696,17 @@ void Game::Render() {
   m_rp_depth_map[0].End();
 
   // Draw Material
-  // m_material_shader[0].Begin();
-  // m_material_shader[0].BindDepthTexture(m_rp_depth_map[0].GetTexture());
-  // m_material_shader[0].BindDiffuseTexture(m_textures[0]);
-  // m_material_shader[0].BindNoiseTexture(m_textures[2]);
-  // m_material_shader[0].BindMaterialsBuffer(
-  //     m_rp_material[0].GetMaterialsBuffer());
-  // m_material_shader[0].SetUniforms(camera_position, m_light, model_vp,
-  //                                  model_light_vp, m_model_matrix);
-  // m_rp_material[0].DrawVertices();
-  // m_material_shader[0].End();
+  m_material_shader[0].BindDepthTexture(m_rp_depth_map[0].GetTexture());
+  m_material_shader[0].BindMaterialsBuffer(
+      m_rp_material[0].GetMaterialsBuffer());
+  m_material_shader[0].SetUniforms(camera_position, m_light, model_vp,
+                                   model_light_vp, m_model_matrix);
+  m_material_shader[0].Begin();
+  m_rp_material[0].DrawVertices();
+  m_material_shader[0].End();
 
   // Draw Terrain
-  m_terrain_shader[0].Begin();
-  m_terrain_shader[0].BindDiffuseTexture(m_textures[0]);
+  m_terrain_shader[0].BindMaterialsBuffer(m_rp_terrain[0].GetMaterialsBuffer());
   m_terrain_shader[0].BindNoiseTexture(m_textures[2]);
   m_terrain_shader[0].BindHeightmapTexture(m_textures[3]);
   m_terrain_shader[0].BindBlendTexture(m_textures[4]);
@@ -715,7 +714,7 @@ void Game::Render() {
   m_terrain_shader[0].SetUniforms(camera_position, m_light, m_tile_config,
                                   terrain_vp, terrain_light_vp,
                                   m_terrain_matrix);
-  m_terrain_shader[0].BindMaterialsBuffer(m_rp_terrain[0].GetMaterialsBuffer());
+  m_terrain_shader[0].Begin();
   m_rp_terrain[0].DrawVertices(m_tile_config.resolution);
   m_terrain_shader[0].End();
 

@@ -206,11 +206,7 @@ public:
     m_shader.UseProgram();
     m_shader.UniformBlockBinding("uMaterialBlock", m_material_block_binding);
     m_shader.Uniform1i("uDepthTexture", m_depth_texture);
-    m_shader.Uniform1i("uDiffuseTexture", m_diffuse_texture);
-    m_shader.Uniform1i("uNoiseTexture", m_noise_texture);
 
-    m_depth_shader.UseProgram();
-    m_depth_shader.Uniform1i("uNoiseTexture", m_noise_texture);
     glUseProgram(0);
   };
   NEVER_COPY(RPMaterialShader);
@@ -218,8 +214,6 @@ public:
       : m_shader{std::move(other.m_shader)},
         m_depth_shader{std::move(other.m_depth_shader)},
         m_depth_texture{other.m_depth_texture},
-        m_diffuse_texture{other.m_diffuse_texture},
-        m_noise_texture{other.m_noise_texture},
         m_material_block_binding{other.m_material_block_binding} {};
   void Begin() {
     m_shader.UseProgram();
@@ -264,12 +258,6 @@ public:
   void BindDepthTexture(const RPTexture &texture) const {
     BindTexture(texture, m_depth_texture);
   }
-  void BindDiffuseTexture(const RPTexture &texture) const {
-    BindTexture(texture, m_diffuse_texture);
-  }
-  void BindNoiseTexture(const RPTexture &texture) const {
-    BindTexture(texture, m_noise_texture);
-  }
   void End() {
     if (g_depth_test == GL_FALSE)
       glDisable(GL_DEPTH_TEST);
@@ -284,8 +272,6 @@ private:
   Shader m_shader;
   Shader m_depth_shader;
   const GLuint m_depth_texture{0};
-  const GLuint m_diffuse_texture{1};
-  const GLuint m_noise_texture{2};
   const GLuint m_material_block_binding{0};
   GLboolean g_depth_test, g_cull_face;
   GLint g_cull_face_mode, g_front_face;
@@ -309,7 +295,6 @@ public:
     m_shader.UniformBlockBinding("uTileConfigBlock",
                                  m_tile_config_block_binding);
     m_shader.Uniform1i("uDepthTexture", m_depth_texture);
-    m_shader.Uniform1i("uDiffuseTexture", m_diffuse_texture);
     m_shader.Uniform1i("uNoiseTexture", m_noise_texture);
     m_shader.Uniform1i("uHeightmapTexture", m_heightmap_texture);
     m_shader.Uniform1i("uBlendTexture", m_blend_texture);
@@ -333,7 +318,6 @@ public:
         m_depth_skirt_shader{std::move(other.m_depth_skirt_shader)},
         m_tile_config_ubo{std::move(other.m_tile_config_ubo)},
         m_depth_texture{other.m_depth_texture},
-        m_diffuse_texture{other.m_diffuse_texture},
         m_noise_texture{other.m_noise_texture},
         m_heightmap_texture{other.m_heightmap_texture},
         m_material_block_binding{other.m_material_block_binding},
@@ -398,9 +382,6 @@ public:
   void BindDepthTexture(const RPTexture &texture) const {
     BindTexture(texture, m_depth_texture);
   }
-  void BindDiffuseTexture(const RPTexture &texture) const {
-    BindTexture(texture, m_diffuse_texture);
-  }
   void BindNoiseTexture(const RPTexture &texture) const {
     BindTexture(texture, m_noise_texture);
   }
@@ -417,7 +398,6 @@ private:
   Shader m_depth_skirt_shader;
   UBO m_tile_config_ubo;
   const GLuint m_depth_texture{0};
-  const GLuint m_diffuse_texture{1};
   const GLuint m_noise_texture{2};
   const GLuint m_heightmap_texture{3};
   const GLuint m_blend_texture{4};

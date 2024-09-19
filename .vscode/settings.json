@@ -50,7 +50,10 @@
         "cstring": "cpp",
         "ctime": "cpp",
         "optional": "cpp",
-        "variant": "cpp"
+        "variant": "cpp",
+        "codecvt": "cpp",
+        "ratio": "cpp",
+        "iomanip": "cpp"
     },
     "search.exclude": {
         "**/include": true

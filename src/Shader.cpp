@@ -1,11 +1,28 @@
+#include <filesystem>
 #include <iostream>
 
 #include "Shader.hpp"
 #include "utils.hpp"
 
+// expand #include directives
+std::string LoadShaderSource(const std::string &path) {
+  std::string src = LoadFileIntoString(path);
+  const std::filesystem::path file_path(path);
+  size_t replace_index;
+  while ((replace_index = src.find("#include")) != src.npos) {
+    size_t l_quote = src.find("\"", replace_index);
+    size_t r_quote = src.find("\"", l_quote + 1);
+    const std::string path = src.substr(l_quote + 1, r_quote - l_quote - 1);
+    const std::string path_source =
+        LoadShaderSource(file_path.parent_path() / path);
+    src.replace(replace_index, r_quote - replace_index + 1, path_source);
+  }
+  return src;
+}
+
 Shader::Shader(const char *vertex_path, const char *frag_path) {
-  const std::string vertex_source = LoadFileIntoString(vertex_path);
-  const std::string frag_source = LoadFileIntoString(frag_path);
+  const std::string vertex_source = LoadShaderSource(vertex_path);
+  const std::string frag_source = LoadShaderSource(frag_path);
   const char *vert_c_str = vertex_source.c_str();
   const char *frag_c_str = frag_source.c_str();
 
