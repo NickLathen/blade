@@ -502,8 +502,8 @@ Game::Game(Platform *platform) : m_platform{platform} {
       .ambient_color = {0.5f, 0.5f, 0.5f},
       .direction = {glm::normalize(glm::vec3(-0.2f, 0.2f, 0.2f))},
       .diffuse_color = {1.0f, 1.0f, 1.0f},
-      .static_distance = M_SQRT2f32 * 2.0f * kGridScale,
-      .static_fov = 30.0f,
+      .static_distance = M_SQRT2f32 * kGridScale,
+      .static_fov = 60.0f,
   };
   glm::vec3 initial_camera_position{kGridScale / 2.0f, kGridScale / 2.0f,
                                     -kGridScale / 2.0f};

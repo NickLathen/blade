@@ -64,30 +64,56 @@ void main() {
   float kMediumThreshold = 0.3;
   float kLowThreshold = 0.15;
   
+  vec3 blending = max(abs(nNormalDir), 0.00001);
+  float b = (blending.x + blending.y + blending.z);
+  blending /= vec3(b, b, b);
+
+  float scale = 0.03f;
+  float frac = 0.0f;
+  float blendFrom = 0.0f;
+
+  vec2 xCoords = worldPos.yz * scale;
+  vec2 yCoords = worldPos.xz * scale;
+  vec2 zCoords = worldPos.xy * scale;
+  
+  //biome blending
   if (normalized_height > kHighThreshold) {
-    float frac = (normalized_height - kHighThreshold) / (1.0 - kHighThreshold);
-    color = mix(texture(uBlendTexture, vec3(transformedCoords, 1.0)),
-                texture(uBlendTexture, vec3(transformedCoords, 0.0)),
-                frac);
+    frac = (normalized_height - kHighThreshold) / (1.0 - kHighThreshold);
+    blendFrom = 0.0;
   } else if (normalized_height > kMediumThreshold) {
-    float frac = (normalized_height - kMediumThreshold) / (kHighThreshold - kMediumThreshold);
-    color = mix(texture(uBlendTexture, vec3(transformedCoords, 2.0)),
-                texture(uBlendTexture, vec3(transformedCoords, 1.0)),
-                frac);
+    frac = (normalized_height - kMediumThreshold) / (kHighThreshold - kMediumThreshold);
+    blendFrom = 1.0f;
   } else if (normalized_height > kLowThreshold) {
-    float frac = (normalized_height - kLowThreshold) / (kMediumThreshold - kLowThreshold);
-    color = mix(texture(uBlendTexture, vec3(transformedCoords, 3.0)),
-                texture(uBlendTexture, vec3(transformedCoords, 2.0)),
-                frac);
+    frac = (normalized_height - kLowThreshold) / (kMediumThreshold - kLowThreshold);
+    blendFrom = 2.0f;
   } else {
-    color = texture(uBlendTexture, vec3(transformedCoords, 3.0));
+    frac = 1.0f;
+    blendFrom = 3.0f;
   }
+
+  // tri planar mapping
+  vec4 xaxis = mix(texture( uBlendTexture, vec3(xCoords, blendFrom + 1.0f)),
+                   texture( uBlendTexture, vec3(xCoords, blendFrom)),
+                   frac);
+  vec4 yaxis = mix(texture( uBlendTexture, vec3(yCoords, blendFrom + 1.0f)),
+                   texture( uBlendTexture, vec3(yCoords, blendFrom)),
+                   frac);
+  vec4 zaxis = mix(texture( uBlendTexture, vec3(zCoords, blendFrom + 1.0f)),
+                   texture( uBlendTexture, vec3(zCoords, blendFrom)),
+                   frac);
+
+  color = xaxis * blending.x +
+          yaxis * blending.y +
+          zaxis * blending.z;
+  
   //apply texture color variation
   color = TransformTexColor(color, texCoords, tc, uNoiseTexture);
+  
   //apply lighting
   vec3 ambientColor = uAmbientLightColor * material.ambientColor * color.xyz;
   vec3 litColor = diffuseColor * color.xyz +
                   specularFactor * uLightColor * material.specularColor;
+  
   //apply shadows
   if (diffuseFactor > 0.0f) {
     float bias = mix(tc.parallel_bias, tc.flat_bias, diffuseFactor) / tc.grid_scale;

@@ -53,7 +53,8 @@
         "variant": "cpp",
         "codecvt": "cpp",
         "ratio": "cpp",
-        "iomanip": "cpp"
+        "iomanip": "cpp",
+        "regex": "cpp"
     },
     "search.exclude": {
         "**/include": true
