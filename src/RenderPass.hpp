@@ -358,7 +358,7 @@ public:
     m_shader.UniformMatrix4fv("uLightMVP", GL_FALSE, light_mvp);
     m_shader.UniformMatrix4fv("uModelMatrix", GL_FALSE, model_matrix);
     m_shader.Uniform1f("uSpecularPower", 32.0f);
-    m_shader.Uniform1f("uShininessScale", 2000.0f);
+    m_shader.Uniform1f("uShininessScale", 3000.0f);
 
     m_tile_config_ubo.BufferSubData(0, sizeof(tileConfig), &tileConfig);
     m_tile_config_ubo.BindBufferBase(m_tile_config_block_binding);

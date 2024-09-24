@@ -39,7 +39,7 @@ void main() {
   Material material = uMaterial.materials[materialIdx];
 
   float coordsScale = tc.height_scale / tc.width_scale / tc.grid_scale;
-  vec3 normalDir = GetTexGradient(uHeightmapTexture, heightmapCoords, coordsScale, 0.5f);
+  vec3 normalDir = GetTexGradient(uHeightmapTexture, heightmapCoords, coordsScale, 2.0f);
   normalDir = mat3(uModelMatrix) * normalDir;
 
   vec3 lightDir = normalize(uLightDir);
@@ -51,10 +51,10 @@ void main() {
                       uLightColor;
   vec3 reflectDir = normalize(reflect(-lightDir, nNormalDir));
   vec3 viewDir = normalize(worldPos - uCameraPos);
-  float shininess = material.shininess / uShininessScale;
+
   float specularFactor = max(dot(reflectDir, -viewDir), 0.0);
+  float shininess = material.shininess / uShininessScale;
   specularFactor = pow(specularFactor, uSpecularPower) * shininess;
-  
   //apply texture scaling/displacement
   vec2 transformedCoords = ApplyTexTileConfig(texCoords, tc, uNoiseTexture);
   vec2 noiseCoords = ScaleToCenter(texCoords, 0.5f);

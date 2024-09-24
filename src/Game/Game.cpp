@@ -1,5 +1,6 @@
 #include <imgui.h>
 #include <iostream>
+#include <memory>
 #include <random>
 
 #include <PerlinNoise.hpp>
@@ -47,6 +48,25 @@ void EnableAnisotropicFilter(const RPTexture &texture) {
   }
 }
 
+class ImageData {
+  struct StbiImageDeleter {
+    void operator()(void *p) const { stbi_image_free(p); }
+  };
+
+public:
+  ImageData(const std::string &filename, int req_comp)
+      : data{stbi_load(filename.c_str(), &width, &height, &num_channels,
+                       req_comp)} {};
+
+  unsigned char *get() const { return data.get(); };
+  int width;
+  int height;
+  int num_channels;
+
+private:
+  std::unique_ptr<unsigned char, StbiImageDeleter> data;
+};
+
 RPTexture loadTexture2D(const std::string &path) {
   RPTexture texture{};
   texture.BindTexture(GL_TEXTURE_2D);
@@ -57,18 +77,15 @@ RPTexture loadTexture2D(const std::string &path) {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   EnableAnisotropicFilter(texture);
 
-  int width, height, num_channels;
-  stbi_set_flip_vertically_on_load(true);
-  unsigned char *data =
-      stbi_load(path.c_str(), &width, &height, &num_channels, 0);
-  if (*data) {
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB,
-                 GL_UNSIGNED_BYTE, data);
+  ImageData image{path, 0};
+
+  if (*image.get()) {
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, image.width, image.height, 0, GL_RGB,
+                 GL_UNSIGNED_BYTE, image.get());
     glGenerateMipmap(GL_TEXTURE_2D);
   } else {
     std::cout << "Failed to load texture" << std::endl;
   }
-  stbi_image_free(data);
   return texture;
 }
 
@@ -87,28 +104,25 @@ RPTexture LoadTexture2DArray(const std::vector<std::string> &paths) {
   int texture_height = 0;
 
   for (int i = 0; i < texture_depth; ++i) {
-    int width, height, num_channels;
     const std::string &path = paths[i];
-    unsigned char *data =
-        stbi_load(path.c_str(), &width, &height, &num_channels, 4);
+    ImageData image{path, 4};
     if (i == 0) {
-      texture_width = width;
-      texture_height = height;
+      texture_width = image.width;
+      texture_height = image.height;
       glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA8, texture_width,
                    texture_height, texture_depth, 0, GL_RGBA, GL_UNSIGNED_BYTE,
                    nullptr);
     }
-    if (width != texture_width || height != texture_height) {
+    if (image.width != texture_width || image.height != texture_height) {
       std::cerr << "Image dimensions do not match!" << std::endl;
       return texture;
     }
-    if (!data) {
+    if (!image.get()) {
       std::cerr << "Failed to load image: " << path << std::endl;
       return texture;
     }
-    glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, i, width, height, 1, GL_RGBA,
-                    GL_UNSIGNED_BYTE, data);
-    stbi_image_free(data);
+    glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, i, image.width, image.height,
+                    1, GL_RGBA, GL_UNSIGNED_BYTE, image.get());
   }
   glGenerateMipmap(GL_TEXTURE_2D_ARRAY);
   glBindTexture(GL_TEXTURE_2D_ARRAY, 0);
@@ -414,8 +428,8 @@ void RenderGui(const GameTimer &game_timer, Camera &camera, Light &light,
   ImGui::Text("cpu=%luus", game_timer.cpu_us);
   ImGui::Text("gui=%luus", game_timer.gui_us);
   ImGui::Text("gpu=%luus", game_timer.gpu_us);
-  ImGui::DragFloat4("camera.transform[3]", &camera.transform[3][0], .01f, -5.0f,
-                    5.0f);
+  ImGui::DragFloat4("camera.transform[3]", &camera.transform[3][0], .1f,
+                    -100.0f, 100.0f);
   ImGui::DragFloat4("uModelMatrix[3]", &model_matrix[3][0], .01f, -5.0f, 5.0f);
   ImGui::DragFloat3("camera.target", &camera.target[0], .01f, -10.0, 10.0f);
   ImGui::DragFloat3("light.direction", &light.direction[0], .01f, -10.0f,
@@ -452,7 +466,7 @@ void RenderGui(const GameTimer &game_timer, Camera &camera, Light &light,
   ImGui::SliderFloat("tileConfig.flat_bias", &tileConfig.flat_bias, 1e-8f,
                      1e-3f, "%.8f");
   ImGui::SliderFloat("tileConfig.parallel_bias", &tileConfig.parallel_bias,
-                     1e-8f, 1e-3f, "%.8f");
+                     1e-4f, 1e-2f, "%.8f");
 
   ImGui::Text("%.1f FPS (%.3f ms/frame)", io.Framerate, 1000.0f / io.Framerate);
   ImGui::End();
@@ -533,7 +547,7 @@ Game::Game(Platform *platform) : m_platform{platform} {
       .saturation_scale = 0.1f,
       .brightness_scale = 0.2f,
       .flat_bias = 2e-4f,
-      .parallel_bias = 4e-4f,
+      .parallel_bias = 5e-3f,
   };
   m_game_timer.count_per_microsecond =
       SDL_GetPerformanceFrequency() / 1'000'000;
