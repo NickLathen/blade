@@ -1,13 +1,14 @@
 #include <imgui.h>
 #include <iostream>
-#include <memory>
 #include <random>
 
-#include <PerlinNoise.hpp>
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
+#undef STB_IMAGE_IMPLEMENTATION
+#include <PerlinNoise.hpp>
 
 #include "../Game.hpp"
+#include "../ImageData.hpp"
 #include "../MeshGroup.hpp"
 #include "../Platform.hpp"
 #include "../RenderPass.hpp"
@@ -20,7 +21,7 @@ static void HandleResize(const SDL_Event *event, Camera &camera) {
   int x = event->window.data1;
   int y = event->window.data2;
   glViewport(0, 0, x, y);
-  camera.aspect_ratio = 1.0f * x / y;
+  camera.aspect_ratio = float(x) / float(y);
 }
 
 void EnableAnisotropicFilter(const RPTexture &texture) {
@@ -47,25 +48,6 @@ void EnableAnisotropicFilter(const RPTexture &texture) {
     std::cout << "Anisotropic filtering function not available." << std::endl;
   }
 }
-
-class ImageData {
-  struct StbiImageDeleter {
-    void operator()(void *p) const { stbi_image_free(p); }
-  };
-
-public:
-  ImageData(const std::string &filename, int req_comp)
-      : data{stbi_load(filename.c_str(), &width, &height, &num_channels,
-                       req_comp)} {};
-
-  unsigned char *get() const { return data.get(); };
-  int width;
-  int height;
-  int num_channels;
-
-private:
-  std::unique_ptr<unsigned char, StbiImageDeleter> data;
-};
 
 RPTexture loadTexture2D(const std::string &path) {
   RPTexture texture{};
@@ -496,10 +478,10 @@ Game::Game(Platform *platform) : m_platform{platform} {
   m_textures.emplace_back(NoiseTexture(kNoiseTextureSize, 100.0f, 100.0f));
   m_textures.emplace_back(DisplacementTexture(kHeightMapSize));
   m_textures.emplace_back(LoadTexture2DArray({
-      "assets/textures/veryhigh/snow_02_diff_4k.jpg",
-      "assets/textures/high/forest_ground_04_diff_4k.jpg",
-      "assets/textures/medium/forest_ground_04_diff_4k.jpg",
-      "assets/textures/low/rocky_trail_diff_4k.jpg",
+      "assets/textures/veryhigh/snow_01_diff_1k.jpg",
+      "assets/textures/high/sparse_grass_diff_1k.jpg",
+      "assets/textures/medium/rocky_terrain_diff_1k.jpg",
+      "assets/textures/low/gray_rocks_diff_1k.jpg",
   }));
   m_mesh_groups.emplace_back(Import("assets/fullroom/fullroom.obj"));
   m_rp_material.emplace_back(m_mesh_groups[0].GetMaterials(),
@@ -547,7 +529,7 @@ Game::Game(Platform *platform) : m_platform{platform} {
       .saturation_scale = 0.1f,
       .brightness_scale = 0.2f,
       .flat_bias = 2e-4f,
-      .parallel_bias = 5e-3f,
+      .parallel_bias = 2e-3f,
   };
   m_game_timer.count_per_microsecond =
       SDL_GetPerformanceFrequency() / 1'000'000;

@@ -49,10 +49,10 @@ void main() {
   float diffuseFactor = dot(nNormalDir, lightDir);
   vec3 diffuseColor = max(diffuseFactor, 0.0) *
                       uLightColor;
-  vec3 reflectDir = normalize(reflect(-lightDir, nNormalDir));
-  vec3 viewDir = normalize(worldPos - uCameraPos);
+  vec3 viewDir = normalize(uCameraPos - worldPos);
+  vec3 halfwayDir = normalize(lightDir + viewDir);
 
-  float specularFactor = max(dot(reflectDir, -viewDir), 0.0);
+  float specularFactor = max(dot(nNormalDir, halfwayDir), 0.0);
   float shininess = material.shininess / uShininessScale;
   specularFactor = pow(specularFactor, uSpecularPower) * shininess;
   //apply texture scaling/displacement
@@ -68,7 +68,7 @@ void main() {
   float b = (blending.x + blending.y + blending.z);
   blending /= vec3(b, b, b);
 
-  float scale = 0.03f;
+  float scale = 0.07f;
   float frac = 0.0f;
   float blendFrom = 0.0f;
 
@@ -111,14 +111,17 @@ void main() {
   
   //apply lighting
   vec3 ambientColor = uAmbientLightColor * material.ambientColor * color.xyz;
-  vec3 litColor = diffuseColor * color.xyz +
-                  specularFactor * uLightColor * material.specularColor;
-  
+  vec3 litColor;
+
   //apply shadows
   if (diffuseFactor > 0.0f) {
     float bias = mix(tc.parallel_bias, tc.flat_bias, diffuseFactor) / tc.grid_scale;
     float shadowFactor = CalcShadowFactor(uDepthTexture ,lightSpacePosition, bias);
-    litColor *= shadowFactor;
+    litColor = diffuseColor * color.xyz * shadowFactor +
+                 specularFactor * uLightColor * material.specularColor * pow(shadowFactor, 2.0);
+  } else {
+    //remove specular when facing away from light
+    litColor = diffuseColor * color.xyz;
   }
   color = vec4(ambientColor + litColor, 1.0f);
   FragColor = color;

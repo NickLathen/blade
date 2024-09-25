@@ -357,7 +357,7 @@ public:
     m_shader.UniformMatrix4fv("uMVP", GL_FALSE, mvp);
     m_shader.UniformMatrix4fv("uLightMVP", GL_FALSE, light_mvp);
     m_shader.UniformMatrix4fv("uModelMatrix", GL_FALSE, model_matrix);
-    m_shader.Uniform1f("uSpecularPower", 32.0f);
+    m_shader.Uniform1f("uSpecularPower", 64.0f);
     m_shader.Uniform1f("uShininessScale", 3000.0f);
 
     m_tile_config_ubo.BufferSubData(0, sizeof(tileConfig), &tileConfig);
@@ -418,6 +418,12 @@ private:
     texture.BindTexture(GL_TEXTURE_2D_ARRAY);
   }
 };
+
+// class RPTexturedMaterial {
+//   public:
+//   RPTexturedMaterial(const std::vector<)
+//   private:
+// }
 
 class RPMaterial {
 public:

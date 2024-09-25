@@ -14,7 +14,7 @@ void PrintVertices(const aiMesh *mesh);
 void PrintNormals(const aiMesh *mesh);
 void PrintTexCoords(const aiMesh *mesh);
 void PrintFaces(const aiMesh *mesh);
-void PrintNode(aiNode *node, const aiScene *scene);
+void PrintNode(const aiNode *node, const aiScene *scene);
 void PrintMatrix(const glm::mat4 &m);
 glm::vec3 GetCameraPos(const glm::mat4 &view_matrix);
 void ZoomCamera(glm::mat4 &view_matrix, glm::vec3 &target, float amount);

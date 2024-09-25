@@ -120,7 +120,7 @@ void PrintFaces(const aiMesh *mesh) {
   }
 }
 
-void PrintNode(aiNode *node, const aiScene *scene) {
+void PrintNode(const aiNode *node, const aiScene *scene) {
   printf("##Node##\n");
   printf("%u meshes.\n", node->mNumMeshes);
   printf("%u children.\n", node->mNumChildren);
