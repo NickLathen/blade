@@ -1,11 +1,15 @@
 #pragma once
+#include <SDL.h>
+#include <utility>
+#include <vector>
+
+#include "ImageData.hpp"
 #include "Material.hpp"
 #include "Mesh.hpp"
+#include "MeshGroup.hpp"
 #include "Shader.hpp"
 #include "gl.hpp"
 #include "utils.hpp"
-#include <utility>
-#include <vector>
 
 struct Camera {
   glm::mat4 transform{1.0f};
@@ -197,6 +201,10 @@ private:
   GLuint m_texture;
 };
 
+void EnableAnisotropicFilter(const RPTexture &texture);
+RPTexture loadTexture2D(unsigned char *data, int width, int height,
+                        int num_channels);
+
 class RPMaterialShader {
 public:
   RPMaterialShader()
@@ -258,6 +266,22 @@ public:
   void BindDepthTexture(const RPTexture &texture) const {
     BindTexture(texture, m_depth_texture);
   }
+  void BindTextures(std::vector<RPTexture>::const_iterator start,
+                    std::vector<RPTexture>::const_iterator end) const {
+    std::vector<GLint> samplers{};
+    int offset = 0;
+    for (int i = 0; start != end; i++, start++) {
+      if (i == m_depth_texture)
+        offset++;
+      BindTexture(start[0], i + offset);
+      samplers.push_back(i + offset);
+    }
+    m_shader.Uniform1iv("uTextures", samplers.size(), &samplers[0]);
+  }
+  void BindTextures(const std::vector<RPTexture> &textures) const {
+    BindTextures(textures.begin(), textures.end());
+  }
+
   void End() {
     if (g_depth_test == GL_FALSE)
       glDisable(GL_DEPTH_TEST);
@@ -271,7 +295,7 @@ public:
 private:
   Shader m_shader;
   Shader m_depth_shader;
-  const GLuint m_depth_texture{0};
+  const GLuint m_depth_texture{1};
   const GLuint m_material_block_binding{0};
   GLboolean g_depth_test, g_cull_face;
   GLint g_cull_face_mode, g_front_face;
@@ -317,8 +341,8 @@ public:
         m_depth_shader{std::move(other.m_depth_shader)},
         m_depth_skirt_shader{std::move(other.m_depth_skirt_shader)},
         m_tile_config_ubo{std::move(other.m_tile_config_ubo)},
-        m_depth_texture{other.m_depth_texture},
         m_noise_texture{other.m_noise_texture},
+        m_depth_texture{other.m_depth_texture},
         m_heightmap_texture{other.m_heightmap_texture},
         m_material_block_binding{other.m_material_block_binding},
         m_tile_config_block_binding{other.m_tile_config_block_binding} {};
@@ -397,10 +421,10 @@ private:
   Shader m_depth_shader;
   Shader m_depth_skirt_shader;
   UBO m_tile_config_ubo;
-  const GLuint m_depth_texture{0};
-  const GLuint m_noise_texture{2};
-  const GLuint m_heightmap_texture{3};
-  const GLuint m_blend_texture{4};
+  const GLuint m_noise_texture{0};
+  const GLuint m_depth_texture{1};
+  const GLuint m_heightmap_texture{2};
+  const GLuint m_blend_texture{3};
   const GLuint m_material_block_binding{0};
   const GLuint m_tile_config_block_binding{1};
 
@@ -419,16 +443,10 @@ private:
   }
 };
 
-// class RPTexturedMaterial {
-//   public:
-//   RPTexturedMaterial(const std::vector<)
-//   private:
-// }
-
 class RPMaterial {
 public:
   RPMaterial(const std::vector<Material> &materials,
-             const std::vector<MeshVertexBuffer> &vertex_buffer_data,
+             const std::vector<MaterialVertexData> &vertex_buffer_data,
              const std::vector<GLuint> &element_buffer_data);
   NEVER_COPY(RPMaterial);
   RPMaterial(RPMaterial &&other)
@@ -444,6 +462,39 @@ private:
   UBO m_ubo;
   VBO m_vbo;
   EBO m_ebo;
+  GLuint m_num_elements{0};
+};
+
+class RPTexturedMaterial {
+  struct TexturedMaterialDrawCall {
+    int firstTexture;
+    int lastTexture;
+    int firstVertex;
+    int lastVertex;
+  };
+
+public:
+  RPTexturedMaterial(const std::vector<ImageData> &texture_images,
+                     const std::vector<TextureVertexData> &vertex_buffer_data,
+                     const std::vector<GLuint> &element_buffer_data,
+                     const std::vector<MeshMap> &mesh_map);
+  NEVER_COPY(RPTexturedMaterial);
+  RPTexturedMaterial(RPTexturedMaterial &&other)
+      : m_vao{std::move(other.m_vao)}, m_vbo{std::move(other.m_vbo)},
+        m_ebo{std::move(other.m_ebo)}, m_textures{std::move(other.m_textures)},
+        m_draw_calls{std::move(other.m_draw_calls)},
+        m_num_elements{other.m_num_elements} {};
+
+  void DrawVertices(const RPMaterialShader &shader) const;
+  const std::vector<RPTexture> &GetTextures() const { return m_textures; };
+
+private:
+  void PrecomputeDrawCalls(const std::vector<MeshMap> &mesh_map);
+  VAO m_vao;
+  VBO m_vbo;
+  EBO m_ebo;
+  std::vector<RPTexture> m_textures{};
+  std::vector<TexturedMaterialDrawCall> m_draw_calls{};
   GLuint m_num_elements{0};
 };
 

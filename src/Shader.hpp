@@ -19,6 +19,8 @@ public:
   inline void UseProgram() const;
   inline void UniformBlockBinding(const std::string &block_name,
                                   GLuint block_binding) const;
+  inline void Uniform1iv(const std::string &name, GLsizei count,
+                         const GLint *value) const;
   inline void Uniform3fv(const std::string &name, const glm::vec3 &value) const;
   inline void Uniform4fv(const std::string &name, const glm::vec4 &value) const;
   inline void UniformMatrix4fv(const std::string &name, GLboolean transpose,
@@ -73,6 +75,11 @@ inline void Shader::Uniform1f(const std::string &name, float value) const {
 
 inline void Shader::Uniform1i(const std::string &name, GLint value) const {
   glProgramUniform1i(m_program, GetUniformLocation(name), value);
+};
+
+inline void Shader::Uniform1iv(const std::string &name, GLsizei count,
+                               const GLint *value) const {
+  glProgramUniform1iv(m_program, GetUniformLocation(name), count, value);
 };
 inline void Shader::Uniform1ui(const std::string &name, GLuint value) const {
   glProgramUniform1ui(m_program, GetUniformLocation(name), value);

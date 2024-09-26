@@ -15,6 +15,7 @@ class Material {
 public:
   Material(const aiMaterial *material);
   const BSDFMaterial &GetProperties() const;
+  std::string m_diffuse_texture{};
 
 private:
   BSDFMaterial m_properties{};

@@ -14,9 +14,6 @@
 #include "../RenderPass.hpp"
 #include "../utils.hpp"
 
-#define GL_TEXTURE_MAX_ANISOTROPY_EXT 0x84FE
-#define GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT 0x84FF
-
 static void HandleResize(const SDL_Event *event, Camera &camera) {
   int x = event->window.data1;
   int y = event->window.data2;
@@ -24,51 +21,10 @@ static void HandleResize(const SDL_Event *event, Camera &camera) {
   camera.aspect_ratio = float(x) / float(y);
 }
 
-void EnableAnisotropicFilter(const RPTexture &texture) {
-  const char *extensions = (const char *)glGetString(GL_EXTENSIONS);
-  GLfloat maxAnisotropy = 0.0f;
-  if (strstr(extensions, "GL_EXT_texture_filter_anisotropic")) {
-    glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT,
-                &maxAnisotropy); // Get the max anisotropy
-    printf("x%.0f Anisotropic filtering is supported.\n", maxAnisotropy);
-  } else {
-    printf("Anisotropic filtering is not supported.\n");
-    return;
-  }
-  typedef void (*glTexParameterfEXT_t)(GLenum target, GLenum pname,
-                                       GLfloat param);
-  glTexParameterfEXT_t glTexParameterfEXT =
-      (glTexParameterfEXT_t)SDL_GL_GetProcAddress("glTexParameterfEXT");
-
-  if (glTexParameterfEXT) {
-    texture.BindTexture(GL_TEXTURE_2D);
-    glTexParameterfEXT(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT,
-                       maxAnisotropy);
-  } else {
-    std::cout << "Anisotropic filtering function not available." << std::endl;
-  }
-}
-
-RPTexture loadTexture2D(const std::string &path) {
-  RPTexture texture{};
-  texture.BindTexture(GL_TEXTURE_2D);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
-                  GL_LINEAR_MIPMAP_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  EnableAnisotropicFilter(texture);
-
+RPTexture loadTexture2DFromFile(const std::string &path) {
   ImageData image{path, 0};
-
-  if (*image.get()) {
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, image.width, image.height, 0, GL_RGB,
-                 GL_UNSIGNED_BYTE, image.get());
-    glGenerateMipmap(GL_TEXTURE_2D);
-  } else {
-    std::cout << "Failed to load texture" << std::endl;
-  }
-  return texture;
+  return loadTexture2D(image.get(), image.width, image.height,
+                       image.num_channels);
 }
 
 RPTexture LoadTexture2DArray(const std::vector<std::string> &paths) {
@@ -468,12 +424,11 @@ void RegenerateTerrain(RPTexture &tex) {
 }
 
 Game::Game(Platform *platform) : m_platform{platform} {
-  // m_textures.emplace_back(
-  // loadTexture2D("assets/textures/eight_square_test/eight_square_test.png"));
-  m_textures.emplace_back(
-      loadTexture2D("assets/textures/Poliigon_GrassPatchyGround_4585/2K/"
-                    "Poliigon_GrassPatchyGround_4585_BaseColor.jpg"));
-  m_textures.emplace_back(loadTexture2D(
+  stbi_set_flip_vertically_on_load(true);
+  m_textures.emplace_back(loadTexture2DFromFile(
+      "assets/textures/Poliigon_GrassPatchyGround_4585/2K/"
+      "Poliigon_GrassPatchyGround_4585_BaseColor.jpg"));
+  m_textures.emplace_back(loadTexture2DFromFile(
       "assets/textures/GroundDirtRocky020/GroundDirtRocky020_COL_2K.jpg"));
   m_textures.emplace_back(NoiseTexture(kNoiseTextureSize, 100.0f, 100.0f));
   m_textures.emplace_back(DisplacementTexture(kHeightMapSize));
@@ -485,8 +440,25 @@ Game::Game(Platform *platform) : m_platform{platform} {
   }));
   m_mesh_groups.emplace_back(Import("assets/fullroom/fullroom.obj"));
   m_rp_material.emplace_back(m_mesh_groups[0].GetMaterials(),
-                             m_mesh_groups[0].GetVertexBuffer(),
+                             m_mesh_groups[0].GetMaterialVertexBuffer(),
                              m_mesh_groups[0].GetElementBuffer());
+  std::vector<std::string> wow_assets{
+      "assets/wow/signs/dwarfsign_axes.obj",
+      "/home/nick/wow.export/world/wmo/azeroth/buildings/stormwind/"
+      "stormwind.obj",
+      "/home/nick/wow.export/maps/kalimdor/adt_31_31.obj",
+      "/home/nick/wow.export/maps/kalimdor/adt_31_32.obj",
+  };
+
+  for (uint i = 0; i < wow_assets.size(); i++) {
+    uint idx = m_mesh_groups.size();
+    m_mesh_groups.emplace_back(Import(wow_assets[i]));
+    m_rp_textured_material.emplace_back(
+        m_mesh_groups[idx].GetTextureImages(),
+        m_mesh_groups[idx].GetTextureVertexBuffer(),
+        m_mesh_groups[idx].GetElementBuffer(), m_mesh_groups[idx].GetMeshMap());
+  }
+
   m_rp_depth_map.emplace_back(kDepthMapSize);
   m_rp_tex.emplace_back();
   m_rp_icon.emplace_back();
@@ -501,9 +473,8 @@ Game::Game(Platform *platform) : m_platform{platform} {
       .static_distance = M_SQRT2f32 * kGridScale,
       .static_fov = 60.0f,
   };
-  glm::vec3 initial_camera_position{kGridScale / 2.0f, kGridScale / 2.0f,
-                                    -kGridScale / 2.0f};
-  glm::vec3 initial_camera_target{0.0, kGridScale / 8.0, 0.0};
+  glm::vec3 initial_camera_position{2.0f, 2.0f, -2.0f};
+  glm::vec3 initial_camera_target{0.0, 0.0, 0.0};
   glm::mat4 transform{glm::lookAt(initial_camera_position,
                                   initial_camera_target, glm::vec3{0, 1, 0})};
   glm::vec2 drawable_size{m_platform->GetDrawableSize()};
@@ -511,8 +482,8 @@ Game::Game(Platform *platform) : m_platform{platform} {
               .target = initial_camera_target,
               .aspect_ratio = 1.0f * drawable_size.x / drawable_size.y,
               .fov = 60,
-              .near = 0.01f,
-              .far = 1000.0f};
+              .near = 0.1f,
+              .far = 10000.0f};
   m_model_matrix =
       glm::rotate(glm::mat4(1.0f), -1.0f, glm::vec3(0.0, 1.0, 0.0));
   m_terrain_matrix = glm::mat4(1.0f);
@@ -693,12 +664,18 @@ void Game::Render() {
 
   // Draw Material
   m_material_shader[0].BindDepthTexture(m_rp_depth_map[0].GetTexture());
+  m_material_shader[0].BindTextures(
+      m_rp_textured_material[0].GetTextures().begin(),
+      m_rp_textured_material[0].GetTextures().begin() + 1);
   m_material_shader[0].BindMaterialsBuffer(
       m_rp_material[0].GetMaterialsBuffer());
   m_material_shader[0].SetUniforms(camera_position, m_light, model_vp,
                                    model_light_vp, m_model_matrix);
   m_material_shader[0].Begin();
   m_rp_material[0].DrawVertices();
+  for (auto &rp : m_rp_textured_material) {
+    rp.DrawVertices(m_material_shader[0]);
+  }
   m_material_shader[0].End();
 
   // Draw Terrain

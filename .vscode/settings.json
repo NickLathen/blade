@@ -54,7 +54,19 @@
         "codecvt": "cpp",
         "ratio": "cpp",
         "iomanip": "cpp",
-        "regex": "cpp"
+        "regex": "cpp",
+        "bitset": "cpp",
+        "chrono": "cpp",
+        "condition_variable": "cpp",
+        "list": "cpp",
+        "map": "cpp",
+        "set": "cpp",
+        "unordered_set": "cpp",
+        "ranges": "cpp",
+        "semaphore": "cpp",
+        "shared_mutex": "cpp",
+        "span": "cpp",
+        "stop_token": "cpp"
     },
     "search.exclude": {
         "**/include": true

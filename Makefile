@@ -18,6 +18,8 @@ BUILD_FILES=src/main.cpp \
             src/RPIcon.cpp \
             src/RPTex.cpp \
             src/RPMaterial.cpp \
+            src/RPTexturedMaterial.cpp \
+            src/RPTexture.cpp \
             src/RPTerrain.cpp
 
 GAME_FILES=src/Game/Game.cpp

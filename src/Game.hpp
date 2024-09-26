@@ -34,6 +34,7 @@ private:
   TextureTileConfig m_tile_config;
   std::vector<MeshGroup> m_mesh_groups{};
   std::vector<RPMaterial> m_rp_material{};
+  std::vector<RPTexturedMaterial> m_rp_textured_material{};
   std::vector<RPDepthMap> m_rp_depth_map{};
   std::vector<RPTex> m_rp_tex{};
   std::vector<RPIcon> m_rp_icon{};

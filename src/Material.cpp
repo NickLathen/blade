@@ -18,6 +18,7 @@
 Material::Material(const aiMaterial *material) {
   aiColor3D color_out;
   float shininess_out;
+  aiString texture_out;
   if (material->Get(AI_MATKEY_COLOR_AMBIENT, color_out) != aiReturn_SUCCESS) {
     std::cerr << "Missing ambient color for material." << std::endl;
   } else {
@@ -37,6 +38,12 @@ Material::Material(const aiMaterial *material) {
     std::cerr << "Missing shininess for material." << std::endl;
   } else {
     m_properties.shininess = shininess_out;
+  }
+  if (material->Get(AI_MATKEY_TEXTURE_DIFFUSE(0), texture_out) !=
+      aiReturn_SUCCESS) {
+    // std::cerr << "Missing texture for material." << std::endl;
+  } else {
+    m_diffuse_texture = std::string{texture_out.C_Str()};
   }
 };
 const BSDFMaterial &Material::GetProperties() const { return m_properties; };

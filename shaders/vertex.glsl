@@ -8,18 +8,21 @@ layout (location = 0) in vec3 aPos;
 layout (location = 1) in vec3 aNormal;
 layout (location = 2) in vec2 aTexCoords;
 layout (location = 3) in uint aMaterialIdx;
+layout (location = 4) in int aTextureIdx;
 
 out vec3 normalDir;
 out vec3 worldPos;
 out vec2 texCoords;
 out vec4 lightSpacePosition;
 flat out uint materialIdx;
+flat out int textureIdx;
 
 void main() {
     texCoords = aTexCoords;
     normalDir = mat3(uModelMatrix) * aNormal;
     worldPos = (uModelMatrix * vec4(aPos, 1.0)).xyz;
     materialIdx = aMaterialIdx;
+    textureIdx = aTextureIdx;
     gl_Position = uMVP * vec4(aPos, 1.0);
     lightSpacePosition = uLightMVP * vec4(aPos, 1.0);
 }

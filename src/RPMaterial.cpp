@@ -3,9 +3,10 @@
 #include <glm/ext.hpp>
 #include <glm/glm.hpp>
 
-RPMaterial::RPMaterial(const std::vector<Material> &materials,
-                       const std::vector<MeshVertexBuffer> &vertex_buffer_data,
-                       const std::vector<GLuint> &element_buffer_data) {
+RPMaterial::RPMaterial(
+    const std::vector<Material> &materials,
+    const std::vector<MaterialVertexData> &vertex_buffer_data,
+    const std::vector<GLuint> &element_buffer_data) {
 
   // Copy materials to GPU m_ubo
   uint num_materials = materials.size();
@@ -24,14 +25,14 @@ RPMaterial::RPMaterial(const std::vector<Material> &materials,
 
   m_vao.BindVertexArray();
   m_vao.VertexAttribPointer(m_vbo, 0, 3, GL_FLOAT, GL_FALSE,
-                            sizeof(MeshVertexBuffer), (GLvoid *)0);
+                            sizeof(MaterialVertexData), (GLvoid *)0);
   m_vao.VertexAttribPointer(m_vbo, 1, 3, GL_FLOAT, GL_FALSE,
-                            sizeof(MeshVertexBuffer),
-                            (GLvoid *)(offsetof(MeshVertexBuffer, normal)));
+                            sizeof(MaterialVertexData),
+                            (GLvoid *)(offsetof(MaterialVertexData, normal)));
   m_vao.VertexAttribIPointer(
-      m_vbo, 3, 1, GL_UNSIGNED_INT, sizeof(MeshVertexBuffer),
-      (GLvoid *)(offsetof(MeshVertexBuffer, material_idx)));
-
+      m_vbo, 3, 1, GL_UNSIGNED_INT, sizeof(MaterialVertexData),
+      (GLvoid *)(offsetof(MaterialVertexData, material_idx)));
+  glVertexAttribI4i(4, -1, 0, 0, 0); // aTextureIdx
   m_ebo.BindBuffer();
 
   m_vao.Unbind();
