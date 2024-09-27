@@ -1,17 +1,20 @@
-#include "MeshGroup.hpp"
-#include "RenderPass.hpp"
-#include "utils.hpp"
 #include <glm/ext.hpp>
 #include <glm/glm.hpp>
 
+#include "ImageData.hpp"
+#include "MeshGroup.hpp"
+#include "RenderPass.hpp"
+#include "utils.hpp"
+
 RPTexturedMaterial::RPTexturedMaterial(
-    const std::vector<ImageData> &texture_images,
+    const std::vector<std::string> &texture_files,
     const std::vector<TextureVertexData> &vertex_buffer_data,
     const std::vector<GLuint> &element_buffer_data,
     const std::vector<MeshMap> &mesh_map) {
   m_num_elements = element_buffer_data.size();
 
-  for (const auto &image : texture_images) {
+  for (const auto &texture_file : texture_files) {
+    ImageData image{texture_file, 0};
     m_textures.emplace_back(loadTexture2D(image.get(), image.width,
                                           image.height, image.num_channels));
   }

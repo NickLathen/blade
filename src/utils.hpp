@@ -17,7 +17,6 @@ void PrintFaces(const aiMesh *mesh);
 void PrintNode(const aiNode *node, const aiScene *scene);
 void PrintMatrix(const glm::mat4 &m);
 glm::vec3 GetCameraPos(const glm::mat4 &view_matrix);
-void ZoomCamera(glm::mat4 &view_matrix, glm::vec3 &target, float amount);
 void OrbitYaw(glm::mat4 &view_matrix, glm::vec3 &target, float amount);
 void OrbitPitch(glm::mat4 &view_matrix, glm::vec3 &target, float amount);
 void RotateYaw(glm::mat4 &view_matrix, float amount);

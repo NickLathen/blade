@@ -6,7 +6,6 @@
 #include <string>
 #include <vector>
 
-#include "ImageData.hpp"
 #include "Material.hpp"
 #include "Mesh.hpp"
 #include "utils.hpp"
@@ -26,7 +25,7 @@ public:
   const std::vector<MaterialVertexData> &GetMaterialVertexBuffer() const;
   const std::vector<TextureVertexData> &GetTextureVertexBuffer() const;
   const std::vector<GLuint> &GetElementBuffer() const;
-  const std::vector<ImageData> &GetTextureImages() const;
+  const std::vector<std::string> &GetTextureFiles() const;
   const std::vector<MeshMap> &GetMeshMap() const;
 
 private:
@@ -37,7 +36,7 @@ private:
   std::vector<Mesh> m_meshes{};
   std::vector<MeshMap> m_mesh_map{};
   std::vector<Material> m_materials{};
-  std::vector<ImageData> m_texture_images{};
+  std::vector<std::string> m_texture_files{};
   std::vector<GLuint> m_element_buffer{};
   std::vector<MaterialVertexData> m_material_vertex_buffer{};
   std::vector<TextureVertexData> m_texture_vertex_buffer{};

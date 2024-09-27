@@ -454,7 +454,7 @@ Game::Game(Platform *platform) : m_platform{platform} {
     uint idx = m_mesh_groups.size();
     m_mesh_groups.emplace_back(Import(wow_assets[i]));
     m_rp_textured_material.emplace_back(
-        m_mesh_groups[idx].GetTextureImages(),
+        m_mesh_groups[idx].GetTextureFiles(),
         m_mesh_groups[idx].GetTextureVertexBuffer(),
         m_mesh_groups[idx].GetElementBuffer(), m_mesh_groups[idx].GetMeshMap());
   }

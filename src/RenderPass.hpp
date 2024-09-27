@@ -3,7 +3,6 @@
 #include <utility>
 #include <vector>
 
-#include "ImageData.hpp"
 #include "Material.hpp"
 #include "Mesh.hpp"
 #include "MeshGroup.hpp"
@@ -474,7 +473,7 @@ class RPTexturedMaterial {
   };
 
 public:
-  RPTexturedMaterial(const std::vector<ImageData> &texture_images,
+  RPTexturedMaterial(const std::vector<std::string> &texture_files,
                      const std::vector<TextureVertexData> &vertex_buffer_data,
                      const std::vector<GLuint> &element_buffer_data,
                      const std::vector<MeshMap> &mesh_map);

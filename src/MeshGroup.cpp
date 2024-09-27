@@ -115,8 +115,8 @@ const std::vector<GLuint> &MeshGroup::GetElementBuffer() const {
   return m_element_buffer;
 };
 
-const std::vector<ImageData> &MeshGroup::GetTextureImages() const {
-  return m_texture_images;
+const std::vector<std::string> &MeshGroup::GetTextureFiles() const {
+  return m_texture_files;
 }
 
 uint MeshGroup::AddMaterial(const aiMaterial *material) {
@@ -125,8 +125,8 @@ uint MeshGroup::AddMaterial(const aiMaterial *material) {
 };
 
 uint MeshGroup::AddTexture(const std::string &path) {
-  m_texture_images.emplace_back(path, 0);
-  return m_texture_images.size() - 1;
+  m_texture_files.emplace_back(path);
+  return m_texture_files.size() - 1;
 };
 
 uint MeshGroup::AddMesh(const aiMesh *mesh, GLuint vertex_offset,
