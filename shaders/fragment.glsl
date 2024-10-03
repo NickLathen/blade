@@ -47,24 +47,28 @@ void main() {
   float shininess = material.shininess / uShininessScale;
   float specularFactor = max(dot(reflectDir, -viewDir), 0.0);
   specularFactor = pow(specularFactor, uSpecularPower) * shininess;
-  vec4 color;
+  vec3 ambientColor, litColor;
+  float alpha = 1.0;
   if (textureIdx >= 0) {
-    vec4 materialColor = texture(uTextures[textureIdx % NUM_TEXTURES], texCoords);
-    vec3 ambientColor = uAmbientLightColor * vec3(.4,.4,.4) * materialColor.rgb;
-    vec3 litColor = diffuseColor * materialColor.rgb +
-                    specularFactor * uLightColor * vec3(.5,.5,.5);
-    color = vec4(ambientColor + litColor, .5);
+    vec4 color = texture(uTextures[textureIdx % NUM_TEXTURES], mod(texCoords, 1.0));
+    ambientColor = uAmbientLightColor * color.rgb;
+    litColor = diffuseColor * color.rgb +
+               specularFactor * uLightColor;
+    alpha = color.a;
   } else {
-    vec3 materialColor = material.diffuseColor;
-    vec3 ambientColor = uAmbientLightColor * material.ambientColor * materialColor;
-    vec3 litColor = diffuseColor * materialColor +
-                    specularFactor * uLightColor * material.specularColor;
-    if (diffuseFactor > 0.0f) {
-      float bias = mix(0.0000001, 0.000001, diffuseFactor);
-      float shadowFactor = CalcShadowFactor(uDepthTexture, lightSpacePosition, bias);
-      litColor *= shadowFactor;
-    }
-    color = vec4(ambientColor + litColor, 1.0f);
+    vec3 color = material.diffuseColor;
+    ambientColor = uAmbientLightColor * material.ambientColor * color;
+    litColor = diffuseColor * color +
+               specularFactor * uLightColor * material.specularColor;
   }
-  FragColor = color;
+  if (diffuseFactor > 0.0f) {
+    float bias = mix(0.0002, 0.002, diffuseFactor);
+    float shadowFactor = CalcShadowFactor(uDepthTexture, lightSpacePosition, bias);
+    litColor *= shadowFactor;
+  }
+  if (alpha < 0.5) {
+    FragColor = vec4(1,1,1,1);
+    return;
+  }
+  FragColor = vec4(ambientColor + litColor, alpha);
 };

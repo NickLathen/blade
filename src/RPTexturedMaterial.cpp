@@ -15,8 +15,8 @@ RPTexturedMaterial::RPTexturedMaterial(
 
   for (const auto &texture_file : texture_files) {
     ImageData image{texture_file, 0};
-    m_textures.emplace_back(loadTexture2D(image.get(), image.width,
-                                          image.height, image.num_channels));
+    m_textures.emplace_back(image.get(), image.width, image.height,
+                            image.num_channels);
   }
 
   PrecomputeDrawCalls(mesh_map);

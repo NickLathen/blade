@@ -3,6 +3,8 @@
 #include <utility>
 #include <vector>
 
+#include "GPUResources.hpp"
+#include "GpuTexture.hpp"
 #include "Material.hpp"
 #include "Mesh.hpp"
 #include "MeshGroup.hpp"
@@ -43,166 +45,6 @@ struct TextureTileConfig {
   float flat_bias;
   float parallel_bias;
 };
-
-class VBO {
-public:
-  VBO() { glGenBuffers(1, &m_vbo); }
-  ~VBO() {
-    if (m_vbo != 0) {
-      glDeleteBuffers(1, &m_vbo);
-    };
-  }
-  NEVER_COPY(VBO);
-  VBO(VBO &&other) : m_vbo{other.m_vbo} { other.m_vbo = 0; };
-  void BufferData(GLsizeiptr size, const void *data, GLenum usage) const {
-    BindBuffer();
-    glBufferData(GL_ARRAY_BUFFER, size, data, usage);
-    Unbind();
-  };
-  void BindBuffer() const { glBindBuffer(GL_ARRAY_BUFFER, m_vbo); }
-  void Unbind() const { glBindBuffer(GL_ARRAY_BUFFER, 0); }
-
-private:
-  GLuint m_vbo;
-};
-
-class VAO {
-public:
-  VAO() { glGenVertexArrays(1, &m_vao); };
-  ~VAO() {
-    if (m_vao != 0) {
-      glDeleteVertexArrays(1, &m_vao);
-    };
-  }
-  NEVER_COPY(VAO);
-  VAO(VAO &&other) : m_vao{other.m_vao} { other.m_vao = 0; };
-
-  void BindVertexArray() const { glBindVertexArray(m_vao); };
-  void VertexAttribPointer(const VBO &vbo, GLuint index, GLint size,
-                           GLenum type, GLboolean normalized, GLsizei stride,
-                           const void *offset) const {
-    glEnableVertexAttribArray(index);
-    vbo.BindBuffer();
-    glVertexAttribPointer(index, size, type, normalized, stride, offset);
-    vbo.Unbind();
-  };
-  void VertexAttribIPointer(const VBO &vbo, GLuint index, GLint size,
-                            GLenum type, GLsizei stride,
-                            const void *offset) const {
-    glEnableVertexAttribArray(index);
-    vbo.BindBuffer();
-    glVertexAttribIPointer(index, size, type, stride, offset);
-    vbo.Unbind();
-  };
-  void Unbind() const { glBindVertexArray(0); };
-
-private:
-  GLuint m_vao;
-};
-
-class EBO {
-public:
-  EBO() { glGenBuffers(1, &m_ebo); }
-  ~EBO() {
-    if (m_ebo != 0) {
-      glDeleteBuffers(1, &m_ebo);
-    }
-  }
-  NEVER_COPY(EBO);
-  EBO(EBO &&other) : m_ebo{other.m_ebo} { other.m_ebo = 0; };
-
-  void BufferData(GLsizeiptr size, const void *data, GLenum usage) const {
-    BindBuffer();
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, size, data, usage);
-    Unbind();
-  };
-  void BindBuffer() const { glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_ebo); }
-  void Unbind() const { glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0); }
-
-private:
-  GLuint m_ebo;
-};
-
-class UBO {
-public:
-  UBO() { glGenBuffers(1, &m_ubo); };
-  ~UBO() {
-    if (m_ubo != 0) {
-      glDeleteBuffers(1, &m_ubo);
-    };
-  }
-  NEVER_COPY(UBO);
-  UBO(UBO &&other) : m_ubo{other.m_ubo} { other.m_ubo = 0; };
-
-  void BindBufferBase(GLuint block_binding_index) const {
-    glBindBufferBase(GL_UNIFORM_BUFFER, block_binding_index, m_ubo);
-  };
-  void BindBuffer() const { glBindBuffer(GL_UNIFORM_BUFFER, m_ubo); }
-  void Unbind() const { glBindBuffer(GL_UNIFORM_BUFFER, 0); }
-  void BufferData(GLsizeiptr size, const void *data, GLenum usage) const {
-    BindBuffer();
-    glBufferData(GL_UNIFORM_BUFFER, size, data, usage);
-    Unbind();
-  };
-  void BufferSubData(GLintptr offset, GLsizeiptr size, const void *data) const {
-    BindBuffer();
-    glBufferSubData(GL_UNIFORM_BUFFER, offset, size, data);
-    Unbind();
-  };
-
-private:
-  GLuint m_ubo;
-};
-
-class FBO {
-public:
-  FBO() { glGenFramebuffers(1, &m_fbo); }
-  ~FBO() {
-    if (m_fbo != 0) {
-      glDeleteFramebuffers(1, &m_fbo);
-    }
-  }
-  NEVER_COPY(FBO);
-  FBO(FBO &&other) : m_fbo{other.m_fbo} { other.m_fbo = 0; };
-
-  void BindFramebuffer(GLenum target) const {
-    glBindFramebuffer(target, m_fbo);
-  }
-  void UnbindFramebuffer(GLenum target) const { glBindFramebuffer(target, 0); }
-  GLenum CheckFramebufferStatus(GLenum target) const {
-    return glCheckFramebufferStatus(target);
-  }
-
-private:
-  GLuint m_fbo;
-};
-
-class RPTexture {
-public:
-  RPTexture() { glGenTextures(1, &m_texture); }
-  ~RPTexture() {
-    if (m_texture != 0) {
-      glDeleteTextures(1, &m_texture);
-    }
-  }
-  NEVER_COPY(RPTexture);
-  RPTexture(RPTexture &&other) : m_texture{other.m_texture} {
-    other.m_texture = 0;
-  };
-
-  void BindTexture(GLenum target) const { glBindTexture(target, m_texture); }
-  void FramebufferTexture2D(GLenum target, GLenum attachment, GLenum textarget,
-                            GLint level) const {
-    glFramebufferTexture2D(target, attachment, textarget, m_texture, level);
-  }
-
-private:
-  GLuint m_texture;
-};
-
-void EnableAnisotropicFilter(const RPTexture &texture);
-RPTexture loadTexture2D(unsigned char *data, int width, int height,
-                        int num_channels);
 
 class RPMaterialShader {
 public:
@@ -254,33 +96,32 @@ public:
     m_depth_shader.UniformMatrix4fv("uLightMVP", GL_FALSE, light_mvp);
     m_depth_shader.UniformMatrix4fv("uModelMatrix", GL_FALSE, model_matrix);
   }
-  void BindMaterialsBuffer(const UBO &ubo) const {
+  void BindMaterialsBuffer(const GpuUBO &ubo) const {
     ubo.BindBufferBase(m_material_block_binding);
   }
-  void BindTexture(const RPTexture &texture,
+  void BindTexture(const GpuTexture &texture,
                    const GLuint texture_location) const {
     glActiveTexture(GL_TEXTURE0 + texture_location);
     texture.BindTexture(GL_TEXTURE_2D);
   }
-  void BindDepthTexture(const RPTexture &texture) const {
+  void BindDepthTexture(const GpuTexture &texture) const {
     BindTexture(texture, m_depth_texture);
   }
-  void BindTextures(std::vector<RPTexture>::const_iterator start,
-                    std::vector<RPTexture>::const_iterator end) const {
+  void BindTextures(std::vector<GpuTexture>::const_iterator start,
+                    std::vector<GpuTexture>::const_iterator end) const {
     std::vector<GLint> samplers{};
     int offset = 0;
     for (int i = 0; start != end; i++, start++) {
       if (i == m_depth_texture)
         offset++;
-      BindTexture(start[0], i + offset);
+      BindTexture(*start, i + offset);
       samplers.push_back(i + offset);
     }
     m_shader.Uniform1iv("uTextures", samplers.size(), &samplers[0]);
   }
-  void BindTextures(const std::vector<RPTexture> &textures) const {
+  void BindTextures(const std::vector<GpuTexture> &textures) const {
     BindTextures(textures.begin(), textures.end());
   }
-
   void End() {
     if (g_depth_test == GL_FALSE)
       glDisable(GL_DEPTH_TEST);
@@ -399,19 +240,19 @@ public:
     m_tile_config_ubo.BufferSubData(0, sizeof(tileConfig), &tileConfig);
     m_tile_config_ubo.BindBufferBase(m_tile_config_block_binding);
   };
-  void BindMaterialsBuffer(const UBO &ubo) const {
+  void BindMaterialsBuffer(const GpuUBO &ubo) const {
     ubo.BindBufferBase(m_material_block_binding);
   }
-  void BindDepthTexture(const RPTexture &texture) const {
+  void BindDepthTexture(const GpuTexture &texture) const {
     BindTexture(texture, m_depth_texture);
   }
-  void BindNoiseTexture(const RPTexture &texture) const {
+  void BindNoiseTexture(const GpuTexture &texture) const {
     BindTexture(texture, m_noise_texture);
   }
-  void BindHeightmapTexture(const RPTexture &texture) const {
+  void BindHeightmapTexture(const GpuTexture &texture) const {
     BindTexture(texture, m_heightmap_texture);
   }
-  void BindBlendTexture(const RPTexture &texture) const {
+  void BindBlendTexture(const GpuTexture &texture) const {
     Bind2DArrayTexture(texture, m_blend_texture);
   }
 
@@ -419,7 +260,7 @@ private:
   Shader m_shader;
   Shader m_depth_shader;
   Shader m_depth_skirt_shader;
-  UBO m_tile_config_ubo;
+  GpuUBO m_tile_config_ubo;
   const GLuint m_noise_texture{0};
   const GLuint m_depth_texture{1};
   const GLuint m_heightmap_texture{2};
@@ -430,12 +271,12 @@ private:
   GLboolean g_depth_test, g_cull_face;
   GLint g_cull_face_mode, g_front_face;
 
-  void BindTexture(const RPTexture &texture,
+  void BindTexture(const GpuTexture &texture,
                    const GLuint texture_location) const {
     glActiveTexture(GL_TEXTURE0 + texture_location);
     texture.BindTexture(GL_TEXTURE_2D);
   }
-  void Bind2DArrayTexture(const RPTexture &texture,
+  void Bind2DArrayTexture(const GpuTexture &texture,
                           const GLuint texture_location) const {
     glActiveTexture(GL_TEXTURE0 + texture_location);
     texture.BindTexture(GL_TEXTURE_2D_ARRAY);
@@ -454,13 +295,13 @@ public:
         m_num_elements{other.m_num_elements} {};
 
   void DrawVertices() const;
-  const UBO &GetMaterialsBuffer() const { return m_ubo; };
+  const GpuUBO &GetMaterialsBuffer() const { return m_ubo; };
 
 private:
-  VAO m_vao;
-  UBO m_ubo;
-  VBO m_vbo;
-  EBO m_ebo;
+  GpuVAO m_vao;
+  GpuUBO m_ubo;
+  GpuVBO m_vbo;
+  GpuEBO m_ebo;
   GLuint m_num_elements{0};
 };
 
@@ -485,14 +326,14 @@ public:
         m_num_elements{other.m_num_elements} {};
 
   void DrawVertices(const RPMaterialShader &shader) const;
-  const std::vector<RPTexture> &GetTextures() const { return m_textures; };
+  const std::vector<GpuTexture> &GetTextures() const { return m_textures; };
 
 private:
   void PrecomputeDrawCalls(const std::vector<MeshMap> &mesh_map);
-  VAO m_vao;
-  VBO m_vbo;
-  EBO m_ebo;
-  std::vector<RPTexture> m_textures{};
+  GpuVAO m_vao;
+  GpuVBO m_vbo;
+  GpuEBO m_ebo;
+  std::vector<GpuTexture> m_textures{};
   std::vector<TexturedMaterialDrawCall> m_draw_calls{};
   GLuint m_num_elements{0};
 };
@@ -508,11 +349,11 @@ public:
   glm::mat4 GetProjection(float fov, float near, float far) const;
   void Begin();
   void End();
-  const RPTexture &GetTexture() const;
+  const GpuTexture &GetTexture() const;
 
 private:
-  FBO m_fbo;
-  RPTexture m_texture;
+  GpuFBO m_fbo;
+  GpuTexture m_texture;
   GLuint m_texture_size{0};
   glm::ivec4 g_vp{};
   GLboolean g_depth_test, g_cull_face;
@@ -527,11 +368,11 @@ public:
       : m_vao{std::move(other.m_vao)}, m_ubo{std::move(other.m_ubo)} {};
   void DrawVertices(int num_vertices) const;
   void DrawSkirt(int resolution) const;
-  const UBO &GetMaterialsBuffer() const { return m_ubo; };
+  const GpuUBO &GetMaterialsBuffer() const { return m_ubo; };
 
 private:
-  VAO m_vao;
-  UBO m_ubo;
+  GpuVAO m_vao;
+  GpuUBO m_ubo;
 };
 
 class RPIcon {
@@ -544,7 +385,7 @@ public:
 
 private:
   Shader m_shader;
-  VAO m_vao;
+  GpuVAO m_vao;
 };
 
 class RPTex {
@@ -555,11 +396,11 @@ public:
       : m_shader{std::move(other.m_shader)}, m_vao{std::move(other.m_vao)},
         m_vbo{std::move(other.m_vbo)},
         m_texture_binding{other.m_texture_binding} {};
-  void Draw(const RPTexture &texture) const;
+  void Draw(const GpuTexture &texture) const;
 
 private:
   Shader m_shader;
-  VAO m_vao;
-  VBO m_vbo;
+  GpuVAO m_vao;
+  GpuVBO m_vbo;
   const GLuint m_texture_binding{1};
 };

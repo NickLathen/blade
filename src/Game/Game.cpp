@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <imgui.h>
 #include <iostream>
 #include <random>
@@ -8,6 +9,7 @@
 #include <PerlinNoise.hpp>
 
 #include "../Game.hpp"
+#include "../GpuTexture.hpp"
 #include "../ImageData.hpp"
 #include "../MeshGroup.hpp"
 #include "../Platform.hpp"
@@ -21,15 +23,9 @@ static void HandleResize(const SDL_Event *event, Camera &camera) {
   camera.aspect_ratio = float(x) / float(y);
 }
 
-RPTexture loadTexture2DFromFile(const std::string &path) {
-  ImageData image{path, 0};
-  return loadTexture2D(image.get(), image.width, image.height,
-                       image.num_channels);
-}
-
-RPTexture LoadTexture2DArray(const std::vector<std::string> &paths) {
+GpuTexture LoadTexture2DArray(const std::vector<std::string> &paths) {
   int texture_depth = paths.size();
-  RPTexture texture{};
+  GpuTexture texture{};
   texture.BindTexture(GL_TEXTURE_2D_ARRAY);
 
   glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_REPEAT);
@@ -67,8 +63,8 @@ RPTexture LoadTexture2DArray(const std::vector<std::string> &paths) {
   return texture;
 }
 
-RPTexture NoiseTexture(int texture_size, float x_scale, float y_scale) {
-  RPTexture texture{};
+GpuTexture NoiseTexture(int texture_size, float x_scale, float y_scale) {
+  GpuTexture texture{};
   texture.BindTexture(GL_TEXTURE_2D);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
@@ -221,8 +217,9 @@ std::vector<float> GenerateFaultFormationHeightMap(int texture_size,
   return heightmap_buffer;
 }
 
-RPTexture HeightmapTexture(int texture_size, const std::vector<float> &buffer) {
-  RPTexture texture{};
+GpuTexture HeightmapTexture(int texture_size,
+                            const std::vector<float> &buffer) {
+  GpuTexture texture{};
   texture.BindTexture(GL_TEXTURE_2D);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
@@ -236,8 +233,8 @@ RPTexture HeightmapTexture(int texture_size, const std::vector<float> &buffer) {
   return texture;
 }
 
-RPTexture FaultFormationTexture(int texture_size, int gen_iterations,
-                                int smooth_iterations, float smooth_factor) {
+GpuTexture FaultFormationTexture(int texture_size, int gen_iterations,
+                                 int smooth_iterations, float smooth_factor) {
   std::vector<float> fault_formation_buffer{GenerateFaultFormationHeightMap(
       texture_size, gen_iterations, smooth_iterations, smooth_factor)};
   return HeightmapTexture(texture_size, fault_formation_buffer);
@@ -352,9 +349,41 @@ std::vector<float> GenerateMidpointDisplacementHeightMap(int texture_size) {
   return buffer;
 };
 
-RPTexture DisplacementTexture(int texture_size) {
+GpuTexture DisplacementTexture(int texture_size) {
   return HeightmapTexture(texture_size,
                           GenerateMidpointDisplacementHeightMap(texture_size));
+}
+
+std::vector<float>
+ConvertMapTileToHeightmap(const std::vector<TextureVertexData> &verts,
+                          int tilesize) {
+  glm::vec3 pz = verts[0].position;
+  float x_min = pz.x;
+  float x_max = pz.x;
+  float y_min = pz.y;
+  float y_max = pz.y;
+  float z_min = pz.z;
+  float z_max = pz.z;
+  for (const auto &v : verts) {
+    glm::vec3 p{v.position};
+    x_min = std::min(x_min, p.x);
+    x_max = std::max(x_max, p.x);
+    y_min = std::min(y_min, p.y);
+    y_max = std::max(y_max, p.y);
+    z_min = std::min(z_min, p.z);
+    z_max = std::max(z_max, p.z);
+  }
+  std::vector<float> heightmap(tilesize * tilesize);
+  for (const auto &v : verts) {
+    glm::vec3 p{v.position};
+    float x_frac = (p.x - x_min) / (x_max - x_min);
+    float y_frac = (p.y - y_min) / (y_max - y_min);
+    float z_frac = 1.0 - ((p.z - z_min) / (z_max - z_min)); // invert
+    int x_grid = round(x_frac * (float(tilesize) - 1.0));
+    int z_grid = round(z_frac * (float(tilesize) - 1.0));
+    heightmap[z_grid * tilesize + x_grid] = y_frac;
+  }
+  return heightmap;
 }
 
 void RenderGui(const GameTimer &game_timer, Camera &camera, Light &light,
@@ -414,7 +443,7 @@ int kDepthMapSize = 1024;
 int kHeightMapSize = 256;
 int kNoiseTextureSize = 256;
 
-void RegenerateTerrain(RPTexture &tex) {
+void RegenerateTerrain(GpuTexture &tex) {
   std::vector<float> heightmap_buffer{
       GenerateMidpointDisplacementHeightMap(kHeightMapSize)};
   tex.BindTexture(GL_TEXTURE_2D);
@@ -424,11 +453,14 @@ void RegenerateTerrain(RPTexture &tex) {
 }
 
 Game::Game(Platform *platform) : m_platform{platform} {
+  ImageData wow_grass = ImageData::LoadBLP(
+      "/home/nick/wow.export/character/gnome/male/gnomemale.blp");
+
   stbi_set_flip_vertically_on_load(true);
-  m_textures.emplace_back(loadTexture2DFromFile(
-      "assets/textures/Poliigon_GrassPatchyGround_4585/2K/"
-      "Poliigon_GrassPatchyGround_4585_BaseColor.jpg"));
-  m_textures.emplace_back(loadTexture2DFromFile(
+  m_textures.emplace_back(
+      GpuTexture("assets/textures/Poliigon_GrassPatchyGround_4585/2K/"
+                 "Poliigon_GrassPatchyGround_4585_BaseColor.jpg"));
+  m_textures.emplace_back(GpuTexture(
       "assets/textures/GroundDirtRocky020/GroundDirtRocky020_COL_2K.jpg"));
   m_textures.emplace_back(NoiseTexture(kNoiseTextureSize, 100.0f, 100.0f));
   m_textures.emplace_back(DisplacementTexture(kHeightMapSize));
@@ -443,21 +475,28 @@ Game::Game(Platform *platform) : m_platform{platform} {
                              m_mesh_groups[0].GetMaterialVertexBuffer(),
                              m_mesh_groups[0].GetElementBuffer());
   std::vector<std::string> wow_assets{
-      "assets/wow/signs/dwarfsign_axes.obj",
-      "/home/nick/wow.export/world/wmo/azeroth/buildings/stormwind/"
-      "stormwind.obj",
-      "/home/nick/wow.export/maps/kalimdor/adt_31_31.obj",
-      "/home/nick/wow.export/maps/kalimdor/adt_31_32.obj",
+      // "/home/nick/wow.export/world/wmo/azeroth/buildings/stormwind/"
+      // "stormwind.obj",
+      "/home/nick/wow.export/maps/2601/adt_31_32.obj",
   };
 
-  for (uint i = 0; i < wow_assets.size(); i++) {
-    uint idx = m_mesh_groups.size();
-    m_mesh_groups.emplace_back(Import(wow_assets[i]));
+  for (const auto &s : wow_assets) {
+    m_mesh_groups.emplace_back(Import(s));
+    uint idx = m_mesh_groups.size() - 1;
+    const MeshGroup &mesh_group = m_mesh_groups[idx];
     m_rp_textured_material.emplace_back(
-        m_mesh_groups[idx].GetTextureFiles(),
-        m_mesh_groups[idx].GetTextureVertexBuffer(),
-        m_mesh_groups[idx].GetElementBuffer(), m_mesh_groups[idx].GetMeshMap());
+        mesh_group.GetTextureFiles(), mesh_group.GetTextureVertexBuffer(),
+        mesh_group.GetElementBuffer(), mesh_group.GetMeshMap());
   }
+
+  const std::vector<TextureVertexData> &verts =
+      m_mesh_groups[m_mesh_groups.size() - 1].GetTextureVertexBuffer();
+  int kTilesize = 128;
+  std::vector<float> WowHeightmapData =
+      ConvertMapTileToHeightmap(verts, kTilesize);
+  m_textures.emplace_back(HeightmapTexture(kTilesize, WowHeightmapData));
+
+  m_textures.emplace_back(wow_grass);
 
   m_rp_depth_map.emplace_back(kDepthMapSize);
   m_rp_tex.emplace_back();
@@ -473,7 +512,7 @@ Game::Game(Platform *platform) : m_platform{platform} {
       .static_distance = M_SQRT2f32 * kGridScale,
       .static_fov = 60.0f,
   };
-  glm::vec3 initial_camera_position{2.0f, 2.0f, -2.0f};
+  glm::vec3 initial_camera_position{2.0f, 2.0f, 2.0f};
   glm::vec3 initial_camera_target{0.0, 0.0, 0.0};
   glm::mat4 transform{glm::lookAt(initial_camera_position,
                                   initial_camera_target, glm::vec3{0, 1, 0})};
@@ -611,6 +650,7 @@ void HandleInput(Camera &camera) {
     }
   }
 }
+
 void Game::Render() {
   HandleInput(m_camera);
   m_game_timer.t_finish_events = SDL_GetPerformanceCounter();
@@ -645,19 +685,22 @@ void Game::Render() {
   m_material_shader[0].SetDepthUniforms(model_light_vp, model_light_vp,
                                         m_model_matrix);
   m_rp_material[0].DrawVertices();
+  for (auto &rp : m_rp_textured_material) {
+    rp.DrawVertices(m_material_shader[0]);
+  }
   m_material_shader[0].EndDepth();
 
   // #2 terrain
-  m_terrain_shader[0].BindHeightmapTexture(m_textures[3]);
-  m_terrain_shader[0].SetDepthUniforms(m_tile_config, terrain_light_vp,
-                                       m_model_matrix);
-  m_terrain_shader[0].BeginDepth();
-  m_rp_terrain[0].DrawVertices(m_tile_config.resolution);
-  m_terrain_shader[0].EndDepth();
-  m_terrain_shader[0].setDepthSkirtUniforms(m_tile_config, terrain_light_vp);
-  m_terrain_shader[0].BeginDepthSkirt();
-  m_rp_terrain[0].DrawSkirt(m_tile_config.resolution);
-  m_terrain_shader[0].EndDepthSkirt();
+  // m_terrain_shader[0].BindHeightmapTexture(m_textures[3]);
+  // m_terrain_shader[0].SetDepthUniforms(m_tile_config, terrain_light_vp,
+  //                                      m_model_matrix);
+  // m_terrain_shader[0].BeginDepth();
+  // m_rp_terrain[0].DrawVertices(m_tile_config.resolution);
+  // m_terrain_shader[0].EndDepth();
+  // m_terrain_shader[0].setDepthSkirtUniforms(m_tile_config,
+  // terrain_light_vp); m_terrain_shader[0].BeginDepthSkirt();
+  // m_rp_terrain[0].DrawSkirt(m_tile_config.resolution);
+  // m_terrain_shader[0].EndDepthSkirt();
 
   // End Shadow Pass
   m_rp_depth_map[0].End();
@@ -692,7 +735,7 @@ void Game::Render() {
   m_terrain_shader[0].End();
 
   // draw shadow map to screen
-  // m_rp_tex[0].Draw(m_rp_depth_map[0].GetTexture());
+  m_rp_tex[0].Draw(m_textures[m_textures.size() - 1]);
 
   // 3d icons
   m_rp_icon[0].Draw(vp * glm::vec4(static_light_pos, 1.0),

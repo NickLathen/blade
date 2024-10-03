@@ -41,6 +41,6 @@ private:
   std::vector<RPTerrain> m_rp_terrain{};
   std::vector<RPMaterialShader> m_material_shader{};
   std::vector<RPTerrainShader> m_terrain_shader{};
-  std::vector<RPTexture> m_textures{};
+  std::vector<GpuTexture> m_textures{};
   GameTimer m_game_timer{};
 };

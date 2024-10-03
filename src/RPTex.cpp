@@ -1,3 +1,4 @@
+#include "GpuTexture.hpp"
 #include "RenderPass.hpp"
 
 RPTex::RPTex()
@@ -23,7 +24,7 @@ RPTex::RPTex()
                             (void *)(sizeof(float) * 3));
   m_vao.Unbind();
 };
-void RPTex::Draw(const RPTexture &texture) const {
+void RPTex::Draw(const GpuTexture &texture) const {
   m_shader.UseProgram();
   glActiveTexture(GL_TEXTURE0 + m_texture_binding);
   texture.BindTexture(GL_TEXTURE_2D);

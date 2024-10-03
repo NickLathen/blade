@@ -1,9 +1,9 @@
-#include "utils.hpp"
-
 #include <fstream>
 #include <glm/ext.hpp>
 #include <glm/glm.hpp>
 #include <sstream>
+
+#include "utils.hpp"
 
 std::string LoadFileIntoString(const std::string &file_path) {
   std::ifstream file_stream(file_path);

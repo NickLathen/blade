@@ -1,10 +1,12 @@
+#include <glm/ext.hpp>
+#include <glm/glm.hpp>
+#include <stdio.h>
+
+#include "GpuTexture.hpp"
 #include "Mesh.hpp"
 #include "RenderPass.hpp"
 #include "Shader.hpp"
 #include "gl.hpp"
-#include <glm/ext.hpp>
-#include <glm/glm.hpp>
-#include <stdio.h>
 
 RPDepthMap::RPDepthMap(GLuint texture_size) : m_texture_size{texture_size} {
   m_texture.BindTexture(GL_TEXTURE_2D);
@@ -58,4 +60,4 @@ void RPDepthMap::End() {
     glEnable(GL_CULL_FACE);
 };
 
-const RPTexture &RPDepthMap::GetTexture() const { return m_texture; };
+const GpuTexture &RPDepthMap::GetTexture() const { return m_texture; };
