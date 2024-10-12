@@ -114,6 +114,37 @@ private:
   GLuint m_ubo;
 };
 
+class GpuSSBO {
+public:
+  GpuSSBO() { glGenBuffers(1, &m_ssbo); };
+  ~GpuSSBO() {
+    if (m_ssbo != 0) {
+      glDeleteBuffers(1, &m_ssbo);
+    };
+  }
+  NEVER_COPY(GpuSSBO);
+  GpuSSBO(GpuSSBO &&other) : m_ssbo{other.m_ssbo} { other.m_ssbo = 0; };
+
+  void BindBufferBase(GLuint block_binding_index) const {
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, block_binding_index, m_ssbo);
+  };
+  void BindBuffer() const { glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_ssbo); }
+  void BufferData(GLsizeiptr size, const void *data, GLenum usage) const {
+    BindBuffer();
+    glBufferData(GL_SHADER_STORAGE_BUFFER, size, data, usage);
+    Unbind();
+  };
+  void BufferSubData(GLintptr offset, GLsizeiptr size, const void *data) const {
+    BindBuffer();
+    glBufferSubData(GL_SHADER_STORAGE_BUFFER, offset, size, data);
+    Unbind();
+  };
+  void Unbind() const { glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0); }
+
+private:
+  GLuint m_ssbo;
+};
+
 class GpuFBO {
 public:
   GpuFBO() { glGenFramebuffers(1, &m_fbo); }

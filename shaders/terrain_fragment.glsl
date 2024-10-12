@@ -110,18 +110,18 @@ void main() {
   color = TransformTexColor(color, texCoords, tc, uNoiseTexture);
   
   //apply lighting
-  vec3 ambientColor = uAmbientLightColor * material.ambientColor * color.xyz;
+  vec3 ambientColor = uAmbientLightColor * material.ambientColor * color.rgb;
   vec3 litColor;
 
   //apply shadows
   if (diffuseFactor > 0.0f) {
     float bias = mix(tc.parallel_bias, tc.flat_bias, diffuseFactor) / tc.grid_scale;
     float shadowFactor = CalcShadowFactor(uDepthTexture ,lightSpacePosition, bias);
-    litColor = diffuseColor * color.xyz * shadowFactor +
+    litColor = diffuseColor * color.rgb * shadowFactor +
                  specularFactor * uLightColor * material.specularColor * pow(shadowFactor, 2.0);
   } else {
     //remove specular when facing away from light
-    litColor = diffuseColor * color.xyz;
+    litColor = diffuseColor * color.rgb;
   }
   color = vec4(ambientColor + litColor, 1.0f);
   FragColor = color;

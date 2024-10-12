@@ -5,7 +5,7 @@
             "label": "C/C++: g++ build active file",
             "command": "make",
             "args": [
-                "-j16"
+                "-j24"
             ],
             "options": {
                 "cwd": "${workspaceFolder}"

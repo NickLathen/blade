@@ -1,6 +1,7 @@
 #pragma once
 
 #include "MeshGroup.hpp"
+#include "RPWowTerrain.hpp"
 #include "RenderPass.hpp"
 #include <SDL.h>
 
@@ -39,8 +40,10 @@ private:
   std::vector<RPTex> m_rp_tex{};
   std::vector<RPIcon> m_rp_icon{};
   std::vector<RPTerrain> m_rp_terrain{};
+  std::vector<RPWowTerrain> m_rp_wow_terrain{};
   std::vector<RPMaterialShader> m_material_shader{};
   std::vector<RPTerrainShader> m_terrain_shader{};
+  std::vector<RPWowTerrainShader> m_wow_terrain_shader{};
   std::vector<GpuTexture> m_textures{};
   GameTimer m_game_timer{};
 };

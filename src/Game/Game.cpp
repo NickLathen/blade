@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <filesystem>
 #include <imgui.h>
 #include <iostream>
 #include <random>
@@ -8,12 +9,15 @@
 #undef STB_IMAGE_IMPLEMENTATION
 #include <PerlinNoise.hpp>
 
+#include "../BlpLoader.hpp"
 #include "../Game.hpp"
 #include "../GpuTexture.hpp"
 #include "../ImageData.hpp"
 #include "../MeshGroup.hpp"
 #include "../Platform.hpp"
+#include "../RPWowTerrain.hpp"
 #include "../RenderPass.hpp"
+#include "../WowItemLookup.hpp"
 #include "../utils.hpp"
 
 static void HandleResize(const SDL_Event *event, Camera &camera) {
@@ -21,46 +25,6 @@ static void HandleResize(const SDL_Event *event, Camera &camera) {
   int y = event->window.data2;
   glViewport(0, 0, x, y);
   camera.aspect_ratio = float(x) / float(y);
-}
-
-GpuTexture LoadTexture2DArray(const std::vector<std::string> &paths) {
-  int texture_depth = paths.size();
-  GpuTexture texture{};
-  texture.BindTexture(GL_TEXTURE_2D_ARRAY);
-
-  glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_REPEAT);
-  glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_REPEAT);
-  glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER,
-                  GL_LINEAR_MIPMAP_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-  int texture_width = 0;
-  int texture_height = 0;
-
-  for (int i = 0; i < texture_depth; ++i) {
-    const std::string &path = paths[i];
-    ImageData image{path, 4};
-    if (i == 0) {
-      texture_width = image.width;
-      texture_height = image.height;
-      glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA8, texture_width,
-                   texture_height, texture_depth, 0, GL_RGBA, GL_UNSIGNED_BYTE,
-                   nullptr);
-    }
-    if (image.width != texture_width || image.height != texture_height) {
-      std::cerr << "Image dimensions do not match!" << std::endl;
-      return texture;
-    }
-    if (!image.get()) {
-      std::cerr << "Failed to load image: " << path << std::endl;
-      return texture;
-    }
-    glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, i, image.width, image.height,
-                    1, GL_RGBA, GL_UNSIGNED_BYTE, image.get());
-  }
-  glGenerateMipmap(GL_TEXTURE_2D_ARRAY);
-  glBindTexture(GL_TEXTURE_2D_ARRAY, 0);
-  return texture;
 }
 
 GpuTexture NoiseTexture(int texture_size, float x_scale, float y_scale) {
@@ -336,7 +300,7 @@ std::vector<float> GenerateMidpointDisplacementHeightMap(int texture_size) {
   }
 
   // Smooth
-  int kSmoothIterations = 3;
+  int kSmoothIterations = 1;
   float kSmoothFactor = 0.5;
   for (int i = 0; i < kSmoothIterations; i++) {
     FIRFilter(buffer, kSmoothFactor, FD_UP, texture_size, texture_size);
@@ -439,9 +403,9 @@ void RenderGui(const GameTimer &game_timer, Camera &camera, Light &light,
   ImGui::End();
 }
 
-int kDepthMapSize = 1024;
-int kHeightMapSize = 256;
-int kNoiseTextureSize = 256;
+constexpr int kDepthMapSize = 1024;
+constexpr int kHeightMapSize = 256;
+constexpr int kNoiseTextureSize = 256;
 
 void RegenerateTerrain(GpuTexture &tex) {
   std::vector<float> heightmap_buffer{
@@ -453,18 +417,19 @@ void RegenerateTerrain(GpuTexture &tex) {
 }
 
 Game::Game(Platform *platform) : m_platform{platform} {
-  ImageData wow_grass = ImageData::LoadBLP(
-      "/home/nick/wow.export/character/gnome/male/gnomemale.blp");
+  InitWowItemLookup();
 
-  stbi_set_flip_vertically_on_load(true);
-  m_textures.emplace_back(
-      GpuTexture("assets/textures/Poliigon_GrassPatchyGround_4585/2K/"
-                 "Poliigon_GrassPatchyGround_4585_BaseColor.jpg"));
-  m_textures.emplace_back(GpuTexture(
-      "assets/textures/GroundDirtRocky020/GroundDirtRocky020_COL_2K.jpg"));
+  m_material_shader.emplace_back();
+  m_terrain_shader.emplace_back();
+  m_wow_terrain_shader.emplace_back();
+  m_rp_tex.emplace_back();
+  m_rp_icon.emplace_back();
+
   m_textures.emplace_back(NoiseTexture(kNoiseTextureSize, 100.0f, 100.0f));
   m_textures.emplace_back(DisplacementTexture(kHeightMapSize));
-  m_textures.emplace_back(LoadTexture2DArray({
+
+  stbi_set_flip_vertically_on_load(true);
+  m_textures.emplace_back(GpuTexture::FromPaths({
       "assets/textures/veryhigh/snow_01_diff_1k.jpg",
       "assets/textures/high/sparse_grass_diff_1k.jpg",
       "assets/textures/medium/rocky_terrain_diff_1k.jpg",
@@ -474,36 +439,23 @@ Game::Game(Platform *platform) : m_platform{platform} {
   m_rp_material.emplace_back(m_mesh_groups[0].GetMaterials(),
                              m_mesh_groups[0].GetMaterialVertexBuffer(),
                              m_mesh_groups[0].GetElementBuffer());
-  std::vector<std::string> wow_assets{
-      // "/home/nick/wow.export/world/wmo/azeroth/buildings/stormwind/"
-      // "stormwind.obj",
-      "/home/nick/wow.export/maps/2601/adt_31_32.obj",
-  };
-
-  for (const auto &s : wow_assets) {
-    m_mesh_groups.emplace_back(Import(s));
-    uint idx = m_mesh_groups.size() - 1;
-    const MeshGroup &mesh_group = m_mesh_groups[idx];
-    m_rp_textured_material.emplace_back(
-        mesh_group.GetTextureFiles(), mesh_group.GetTextureVertexBuffer(),
-        mesh_group.GetElementBuffer(), mesh_group.GetMeshMap());
-  }
-
-  const std::vector<TextureVertexData> &verts =
-      m_mesh_groups[m_mesh_groups.size() - 1].GetTextureVertexBuffer();
-  int kTilesize = 128;
-  std::vector<float> WowHeightmapData =
-      ConvertMapTileToHeightmap(verts, kTilesize);
-  m_textures.emplace_back(HeightmapTexture(kTilesize, WowHeightmapData));
-
-  m_textures.emplace_back(wow_grass);
 
   m_rp_depth_map.emplace_back(kDepthMapSize);
-  m_rp_tex.emplace_back();
-  m_rp_icon.emplace_back();
   m_rp_terrain.emplace_back();
-  m_material_shader.emplace_back();
-  m_terrain_shader.emplace_back();
+  std::vector<std::pair<std::string, std::string>> wow_map_paths{};
+  for (int i = 29; i <= 35; i++) {
+    for (int j = 47; j <= 50; j++) {
+      std::pair p{"/home/nick/wow.export/maps/azeroth/azeroth.wdt",
+                  "azeroth_" + std::to_string(i) + "_" + std::to_string(j)};
+      if (std::filesystem::exists("/home/nick/wow.export/maps/azeroth/" +
+                                  p.second + ".adt")) {
+        wow_map_paths.push_back(p);
+      }
+    }
+  }
+  for (const auto &p : wow_map_paths) {
+    m_rp_wow_terrain.emplace_back(p.first, p.second);
+  }
   float kGridScale = 200.0f;
   m_light = {
       .ambient_color = {0.5f, 0.5f, 0.5f},
@@ -512,7 +464,7 @@ Game::Game(Platform *platform) : m_platform{platform} {
       .static_distance = M_SQRT2f32 * kGridScale,
       .static_fov = 60.0f,
   };
-  glm::vec3 initial_camera_position{2.0f, 2.0f, 2.0f};
+  glm::vec3 initial_camera_position{-9000.0, 75.0, -500.0};
   glm::vec3 initial_camera_target{0.0, 0.0, 0.0};
   glm::mat4 transform{glm::lookAt(initial_camera_position,
                                   initial_camera_target, glm::vec3{0, 1, 0})};
@@ -523,9 +475,8 @@ Game::Game(Platform *platform) : m_platform{platform} {
               .fov = 60,
               .near = 0.1f,
               .far = 10000.0f};
-  m_model_matrix =
-      glm::rotate(glm::mat4(1.0f), -1.0f, glm::vec3(0.0, 1.0, 0.0));
-  m_terrain_matrix = glm::mat4(1.0f);
+  m_model_matrix = glm::mat4(1.0);
+  m_terrain_matrix = glm::mat4(1.0);
   m_tile_config = {
       .height_scale = kGridScale / 4.0f,
       .width_scale = 1.0f,
@@ -571,7 +522,7 @@ void Game::Event(const SDL_Event &event) {
       break;
     }
     case SDLK_r: {
-      RegenerateTerrain(m_textures[3]);
+      RegenerateTerrain(m_textures[1]);
       break;
     }
     }
@@ -592,7 +543,7 @@ void Game::Event(const SDL_Event &event) {
   }
 }
 void HandleInput(Camera &camera) {
-  float kMovementSensitivity = 0.2f;
+  float kMovementSensitivity = 0.8f;
   float kMouseMovementSensitivity = 0.005f;
   float kMouseLookSensitivity = .005f;
   int x, y, l;
@@ -665,6 +616,7 @@ void Game::Render() {
   glm::mat4 vp = camera_projection * m_camera.transform;
   glm::mat4 model_vp = vp * m_model_matrix;
   glm::mat4 terrain_vp = vp * m_terrain_matrix;
+  glm::mat4 wow_terrain_vp = vp;
 
   glm::vec3 static_light_pos{glm::normalize(m_light.direction) *
                              m_light.static_distance};
@@ -691,7 +643,7 @@ void Game::Render() {
   m_material_shader[0].EndDepth();
 
   // #2 terrain
-  // m_terrain_shader[0].BindHeightmapTexture(m_textures[3]);
+  // m_terrain_shader[0].BindHeightmapTexture(m_textures[1]);
   // m_terrain_shader[0].SetDepthUniforms(m_tile_config, terrain_light_vp,
   //                                      m_model_matrix);
   // m_terrain_shader[0].BeginDepth();
@@ -707,35 +659,47 @@ void Game::Render() {
 
   // Draw Material
   m_material_shader[0].BindDepthTexture(m_rp_depth_map[0].GetTexture());
-  m_material_shader[0].BindTextures(
-      m_rp_textured_material[0].GetTextures().begin(),
-      m_rp_textured_material[0].GetTextures().begin() + 1);
+  m_material_shader[0].BindTextures(m_textures.begin(), m_textures.begin() + 1);
   m_material_shader[0].BindMaterialsBuffer(
       m_rp_material[0].GetMaterialsBuffer());
   m_material_shader[0].SetUniforms(camera_position, m_light, model_vp,
                                    model_light_vp, m_model_matrix);
   m_material_shader[0].Begin();
-  m_rp_material[0].DrawVertices();
+  // m_rp_material[0].DrawVertices();
   for (auto &rp : m_rp_textured_material) {
-    rp.DrawVertices(m_material_shader[0]);
+    // rp.DrawVertices(m_material_shader[0]);
   }
   m_material_shader[0].End();
 
   // Draw Terrain
   m_terrain_shader[0].BindMaterialsBuffer(m_rp_terrain[0].GetMaterialsBuffer());
-  m_terrain_shader[0].BindNoiseTexture(m_textures[2]);
-  m_terrain_shader[0].BindHeightmapTexture(m_textures[3]);
-  m_terrain_shader[0].BindBlendTexture(m_textures[4]);
+  m_terrain_shader[0].BindNoiseTexture(m_textures[0]);
+  m_terrain_shader[0].BindHeightmapTexture(m_textures[1]);
+  m_terrain_shader[0].BindBlendTexture(m_textures[2]);
   m_terrain_shader[0].BindDepthTexture(m_rp_depth_map[0].GetTexture());
   m_terrain_shader[0].SetUniforms(camera_position, m_light, m_tile_config,
                                   terrain_vp, terrain_light_vp,
                                   m_terrain_matrix);
   m_terrain_shader[0].Begin();
-  m_rp_terrain[0].DrawVertices(m_tile_config.resolution);
+  // m_rp_terrain[0].DrawVertices(m_tile_config.resolution);
   m_terrain_shader[0].End();
 
+  // Draw Wow Terrain
+  m_wow_terrain_shader[0].Begin();
+  for (const auto &t : m_rp_wow_terrain) {
+    m_wow_terrain_shader[0].BindHeightmapBuffer(t.GetHeightmapSSBO());
+    m_wow_terrain_shader[0].BindTextureSlotsBuffer(t.GetTextureSlotsSSBO());
+    m_wow_terrain_shader[0].BindAlphaSlotsBuffer(t.GetAlphaSlotsSSBO());
+    m_wow_terrain_shader[0].BindBlendTexture(t.GetBlendTexture());
+    m_wow_terrain_shader[0].BindAlphaTexture(t.GetAlphaTexture());
+    m_wow_terrain_shader[0].SetUniforms(camera_position, m_light,
+                                        wow_terrain_vp, t.GetCornerPosition());
+    t.DrawVertices();
+  }
+  m_wow_terrain_shader[0].End();
+
   // draw shadow map to screen
-  m_rp_tex[0].Draw(m_textures[m_textures.size() - 1]);
+  // m_rp_tex[0].Draw(m_textures[m_textures.size() - 1]);
 
   // 3d icons
   m_rp_icon[0].Draw(vp * glm::vec4(static_light_pos, 1.0),

@@ -8,20 +8,27 @@ CXX=clang
 CXXFLAGS=$(STD) $(SANITIZE) $(WARNALL) $(DEBUG) $(INCLUDES)
 
 BUILD_FILES=src/main.cpp \
+            src/AdtLoader.cpp \
+            src/BlpLoader.cpp \
             src/GpuTexture.cpp \
             src/ImageData.cpp \
             src/Material.cpp \
             src/Mesh.cpp \
             src/MeshGroup.cpp \
             src/Platform.cpp \
+            src/RenderPass.cpp \
             src/RPDepthMap.cpp \
             src/RPIcon.cpp \
             src/RPMaterial.cpp \
             src/RPTerrain.cpp \
             src/RPTex.cpp \
             src/RPTexturedMaterial.cpp \
+            src/RPWowTerrain.cpp \
+            src/TextureArray.cpp \
             src/Shader.cpp \
-            src/utils.cpp
+            src/utils.cpp \
+            src/WdtLoader.cpp \
+            src/WowItemLookup.cpp
 
 GAME_FILES=src/Game/Game.cpp
 

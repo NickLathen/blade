@@ -21,6 +21,7 @@ public:
                                   GLuint block_binding) const;
   inline void Uniform1iv(const std::string &name, GLsizei count,
                          const GLint *value) const;
+  inline void Uniform2fv(const std::string &name, const glm::vec2 &value) const;
   inline void Uniform3fv(const std::string &name, const glm::vec3 &value) const;
   inline void Uniform4fv(const std::string &name, const glm::vec4 &value) const;
   inline void UniformMatrix4fv(const std::string &name, GLboolean transpose,
@@ -51,7 +52,12 @@ inline void Shader::UniformBlockBinding(const std::string &block_name,
   GLuint uniform_block_index = GetUniformBlockIndex(block_name);
   return glUniformBlockBinding(m_program, uniform_block_index, block_binding);
 };
+inline void Shader::Uniform2fv(const std::string &name,
+                               const glm::vec2 &value) const {
 
+  glProgramUniform2fv(m_program, GetUniformLocation(name), 1,
+                      glm::value_ptr(value));
+};
 inline void Shader::Uniform3fv(const std::string &name,
                                const glm::vec3 &value) const {
 

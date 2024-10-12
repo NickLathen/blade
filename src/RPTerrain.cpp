@@ -9,6 +9,7 @@ RPTerrain::RPTerrain() {
       .shininess = 250.0,
   };
   m_ubo.BufferData(sizeof(terrain_material), &terrain_material, GL_STATIC_DRAW);
+  m_ubo.Unbind();
   m_vao.BindVertexArray();
   glVertexAttribI4ui(0, 0, 0, 0, 0); // aMaterialIdx
   m_vao.Unbind();

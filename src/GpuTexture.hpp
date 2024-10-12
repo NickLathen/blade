@@ -18,16 +18,20 @@ const GpuTexParameters kGpuTexParametersDefault{
 class GpuTexture {
 public:
   GpuTexture() { glGenTextures(1, &m_texture); }
-  GpuTexture(
-      const unsigned char *data, int width, int height, int num_channels,
-      const GpuTexParameters &tex_parameters_i = kGpuTexParametersDefault);
-  GpuTexture(const ImageData &image, const GpuTexParameters &tex_parameters_i =
-                                         kGpuTexParametersDefault)
+  GpuTexture(const unsigned char *data, int width, int height, int num_channels,
+             const GpuTexParameters &tex_parameters = kGpuTexParametersDefault);
+  GpuTexture(const std::vector<ImageData> &images,
+             const GpuTexParameters &tex_parameters = kGpuTexParametersDefault);
+  static GpuTexture
+  FromPaths(const std::vector<std::string> &paths,
+            const GpuTexParameters &tex_parameters = kGpuTexParametersDefault);
+  GpuTexture(const ImageData &image,
+             const GpuTexParameters &tex_parameters = kGpuTexParametersDefault)
       : GpuTexture(image.get(), image.width, image.height, image.num_channels,
-                   tex_parameters_i) {};
-  GpuTexture(const std::string &path, const GpuTexParameters &tex_parameters_i =
-                                          kGpuTexParametersDefault)
-      : GpuTexture(ImageData(path, 0)) {};
+                   tex_parameters) {};
+  GpuTexture(const std::string &path,
+             const GpuTexParameters &tex_parameters = kGpuTexParametersDefault)
+      : GpuTexture(ImageData(path, 0), tex_parameters) {};
 
   ~GpuTexture() {
     if (m_texture != 0) {

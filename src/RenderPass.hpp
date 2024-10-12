@@ -3,7 +3,7 @@
 #include <utility>
 #include <vector>
 
-#include "GPUResources.hpp"
+#include "GpuResources.hpp"
 #include "GpuTexture.hpp"
 #include "Material.hpp"
 #include "Mesh.hpp"
@@ -45,6 +45,11 @@ struct TextureTileConfig {
   float flat_bias;
   float parallel_bias;
 };
+
+void BindTextureLocation(const GpuTexture &texture,
+                         const GLuint texture_location);
+void Bind2DArrayTextureLocation(const GpuTexture &texture,
+                                const GLuint texture_location);
 
 class RPMaterialShader {
 public:
@@ -244,16 +249,16 @@ public:
     ubo.BindBufferBase(m_material_block_binding);
   }
   void BindDepthTexture(const GpuTexture &texture) const {
-    BindTexture(texture, m_depth_texture);
+    BindTextureLocation(texture, m_depth_texture);
   }
   void BindNoiseTexture(const GpuTexture &texture) const {
-    BindTexture(texture, m_noise_texture);
+    BindTextureLocation(texture, m_noise_texture);
   }
   void BindHeightmapTexture(const GpuTexture &texture) const {
-    BindTexture(texture, m_heightmap_texture);
+    BindTextureLocation(texture, m_heightmap_texture);
   }
   void BindBlendTexture(const GpuTexture &texture) const {
-    Bind2DArrayTexture(texture, m_blend_texture);
+    Bind2DArrayTextureLocation(texture, m_blend_texture);
   }
 
 private:
@@ -270,17 +275,83 @@ private:
 
   GLboolean g_depth_test, g_cull_face;
   GLint g_cull_face_mode, g_front_face;
+};
 
-  void BindTexture(const GpuTexture &texture,
-                   const GLuint texture_location) const {
-    glActiveTexture(GL_TEXTURE0 + texture_location);
-    texture.BindTexture(GL_TEXTURE_2D);
+class RPWowTerrainShader {
+public:
+  RPWowTerrainShader()
+      : m_shader{"shaders/wow_terrain_vertex.glsl",
+                 "shaders/wow_terrain_fragment.glsl"} {
+    m_shader.UseProgram();
+    m_shader.Uniform1i("uBlendTexture", m_blend_texture);
+    m_shader.Uniform1i("uAlphaTexture", m_alpha_texture);
+    glUseProgram(0);
   }
-  void Bind2DArrayTexture(const GpuTexture &texture,
-                          const GLuint texture_location) const {
-    glActiveTexture(GL_TEXTURE0 + texture_location);
-    texture.BindTexture(GL_TEXTURE_2D_ARRAY);
+  NEVER_COPY(RPWowTerrainShader);
+  RPWowTerrainShader(RPWowTerrainShader &&other)
+      : m_shader{std::move(other.m_shader)},
+        m_blend_texture{other.m_blend_texture},
+        m_alpha_texture{other.m_alpha_texture},
+        m_heightmap_block_binding{other.m_heightmap_block_binding},
+        m_texture_slots_block_binding{other.m_texture_slots_block_binding},
+        m_alpha_slots_block_binding{other.m_alpha_slots_block_binding},
+        g_depth_test{other.g_depth_test}, g_cull_face{other.g_cull_face},
+        g_cull_face_mode{other.g_cull_face_mode},
+        g_front_face{other.g_front_face} {};
+  void Begin() {
+    m_shader.UseProgram();
+    glGetBooleanv(GL_DEPTH_TEST, &g_depth_test);
+    glGetBooleanv(GL_CULL_FACE, &g_cull_face);
+    glGetIntegerv(GL_CULL_FACE_MODE, &g_cull_face_mode);
+    glGetIntegerv(GL_FRONT_FACE, &g_front_face);
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
+    glFrontFace(GL_CCW);
   }
+  void End() {
+    if (g_depth_test == GL_FALSE)
+      glDisable(GL_DEPTH_TEST);
+    if (g_cull_face == GL_FALSE)
+      glDisable(GL_CULL_FACE);
+    glCullFace(g_cull_face_mode);
+    glFrontFace(g_front_face);
+    glUseProgram(0);
+  }
+  void SetUniforms(const glm::vec3 &camera_pos, const Light &light,
+                   const glm::mat4 &mvp, const glm::vec2 &corner_pos) const {
+    m_shader.Uniform3fv("uCameraPos", camera_pos);
+    m_shader.Uniform3fv("uAmbientLightColor", light.ambient_color);
+    m_shader.Uniform3fv("uLightDir", light.direction);
+    m_shader.Uniform3fv("uLightColor", light.diffuse_color);
+    m_shader.Uniform2fv("uCornerPos", corner_pos);
+    m_shader.UniformMatrix4fv("uMVP", GL_FALSE, mvp);
+  }
+  void BindHeightmapBuffer(const GpuSSBO &ssbo) const {
+    ssbo.BindBufferBase(m_heightmap_block_binding);
+  }
+  void BindTextureSlotsBuffer(const GpuSSBO &ssbo) const {
+    ssbo.BindBufferBase(m_texture_slots_block_binding);
+  };
+  void BindAlphaSlotsBuffer(const GpuSSBO &ssbo) const {
+    ssbo.BindBufferBase(m_alpha_slots_block_binding);
+  };
+  void BindBlendTexture(const GpuTexture &texture) const {
+    Bind2DArrayTextureLocation(texture, m_blend_texture);
+  }
+  void BindAlphaTexture(const GpuTexture &texture) const {
+    Bind2DArrayTextureLocation(texture, m_alpha_texture);
+  }
+
+private:
+  Shader m_shader;
+  const GLuint m_blend_texture{0};
+  const GLuint m_alpha_texture{1};
+  const GLuint m_heightmap_block_binding{0};
+  const GLuint m_texture_slots_block_binding{1};
+  const GLuint m_alpha_slots_block_binding{2};
+  GLboolean g_depth_test, g_cull_face;
+  GLint g_cull_face_mode, g_front_face;
 };
 
 class RPMaterial {

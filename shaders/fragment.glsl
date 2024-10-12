@@ -61,11 +61,11 @@ void main() {
     litColor = diffuseColor * color +
                specularFactor * uLightColor * material.specularColor;
   }
-  if (diffuseFactor > 0.0f) {
-    float bias = mix(0.0002, 0.002, diffuseFactor);
-    float shadowFactor = CalcShadowFactor(uDepthTexture, lightSpacePosition, bias);
-    litColor *= shadowFactor;
-  }
+  // if (diffuseFactor > 0.0f) {
+  //   float bias = mix(0.0002, 0.002, diffuseFactor);
+  //   float shadowFactor = CalcShadowFactor(uDepthTexture, lightSpacePosition, bias);
+  //   litColor *= shadowFactor;
+  // }
   if (alpha < 0.5) {
     FragColor = vec4(1,1,1,1);
     return;
