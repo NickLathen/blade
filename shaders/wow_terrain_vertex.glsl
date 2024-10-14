@@ -29,7 +29,7 @@ flat out int blockNumber;
 
 void main() {
   ChunkOffset offsets = GetChunkOffset(gl_VertexID);
-  if (isHole(offsets, uHoles)) {
+  if (IsHole(offsets, uHoles)) {
     offsets.inner_x = 0;
     offsets.inner_y = 0;
   }
@@ -39,11 +39,11 @@ void main() {
   int chunk_idx = GetChunkIdx(offsets);
   float height;
   uint packed_normal;
-  int iseven = int(chunk_idx % 2 == 0);
-  int isodd = int(chunk_idx % 2 == 1);
+  int even = int(chunk_idx % 2 == 0);
+  int odd = int(chunk_idx % 2 == 1);
   HeightNormalMap map = uHeight[chunk_idx  / 2];
-  height = float(iseven) * map.height + float(isodd) * map.heightA;
-  packed_normal = uint(iseven) * map.packed_normal + uint(isodd) * map.packed_normalA;
+  height = float(even) * map.height + float(odd) * map.heightA;
+  packed_normal = uint(even) * map.packed_normal + uint(odd) * map.packed_normalA;
   vec3 aPos = vec3(-fracs.x_frac_chunk * 533.33333 + uCornerPos.x,
                    height,
                    (fracs.y_frac_chunk - 1.0) * 533.33333 - uCornerPos.y);

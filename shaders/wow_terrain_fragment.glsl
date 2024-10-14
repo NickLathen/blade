@@ -1,6 +1,8 @@
 #version 320 es
 precision highp float;
 
+#include "wow_terrain_functions.glsl"
+
 vec3 blendColors(vec3 baseColor, vec3 blendColor, float alpha) {
 	return baseColor + alpha * (blendColor - baseColor);
 };
@@ -19,6 +21,7 @@ layout(std430, binding=2) buffer uAlphaSlotBuffer {
 
 uniform highp sampler2DArray uBlendTexture;
 uniform highp sampler2DArray uAlphaTexture;
+uniform highp sampler2DArray uShadowTexture;
 
 uniform vec3 uAmbientLightColor;
 uniform vec3 uLightDir;
@@ -52,6 +55,7 @@ void main() {
                       uLightColor;
   vec3 ambientColor = uAmbientLightColor * color.rgb;
   vec3 litColor = diffuseColor * color.rgb;
+  litColor *= GetShadowFactor(uShadowTexture, texCoords, blockNumber);
   color = ambientColor + litColor;
   FragColor = vec4(color, 1.0);
 };

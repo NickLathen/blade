@@ -82,7 +82,7 @@ int GetChunkIdx(ChunkOffset offsets) {
   return corner_idx + inner_component;
 }
 
-bool isHole(ChunkOffset offsets, uint holes[512]) {
+bool IsHole(ChunkOffset offsets, uint holes[512]) {
   int idx = offsets.block_number * 2; //two 32bit values per block
   int box_number = offsets.block_offset / kBoxVerts;
   int box_x = box_number / kBoxesPerStrip;
@@ -94,4 +94,8 @@ bool isHole(ChunkOffset offsets, uint holes[512]) {
   }
   uint flag = 1u << shift;
   return (holes[idx] & flag) != 0u;
+}
+
+float GetShadowFactor(sampler2DArray shadowTexture, vec2 texCoords, int blockNumber) {
+  return (1.0 - texture(shadowTexture, vec3(texCoords, blockNumber)).r * .8);
 }

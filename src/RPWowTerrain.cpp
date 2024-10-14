@@ -85,10 +85,12 @@ void RPWowTerrain::LoadTerrainAdt(
   typedef std::array<uint32_t, 4> TextureSlotMap;
   // build texture slot map
   // atd.mcnk appears to be column wise, but we convert back to row wise
-  std::vector<uint32_t> holes;
+  std::vector<uint32_t> holes{};
+  holes.reserve(2 * 256);
   std::vector<TextureSlotMap> slotmaps{};
   std::vector<TextureSlotMap> alpha_slotmaps{};
   std::vector<ImageData> alpha_images{};
+  std::vector<ImageData> shadow_images{};
   for (size_t row = 0; row < 16; row++) {
     for (size_t col = 0; col < 16; col++) {
       size_t i = col * 16 + row;
@@ -96,6 +98,18 @@ void RPWowTerrain::LoadTerrainAdt(
       // holes
       holes.push_back(ad.mcnk[i].header.high_res_holes_lower);
       holes.push_back(ad.mcnk[i].header.high_res_holes_upper);
+
+      std::vector<unsigned char> shadow_texture_data{};
+      shadow_texture_data.reserve(64 * 64);
+      for (size_t ii = 0; ii < 64; ii++) {
+        for (size_t jj = 0; jj < 64; jj++) {
+          unsigned char bitvalue =
+              atd.mcnk[i].mcsh.shadow_map.test(jj * 64 + ii);
+          shadow_texture_data.push_back(bitvalue * 255);
+        }
+      }
+      shadow_images.emplace_back(
+          ImageData(&shadow_texture_data[0], 64, 64, id_R8));
 
       // texture slot maps
       TextureSlotMap slotmap{};
@@ -139,12 +153,19 @@ void RPWowTerrain::LoadTerrainAdt(
                                   &slotmaps[0], GL_STATIC_DRAW);
   m_ssbo_texture_slots.Unbind();
 
-  TextureArray ta{64, 64, 1, (int)alpha_images.size()};
+  TextureArray alpha_texture_array{64, 64, 1, (int)alpha_images.size()};
   for (auto &i : alpha_images) {
-    ta.PushImage(i);
+    alpha_texture_array.PushImage(i);
   }
-  ta.GetTexture().GenerateMipmap(GL_TEXTURE_2D_ARRAY);
-  m_texture_array.push_back(std::move(ta));
+  alpha_texture_array.GetTexture().GenerateMipmap(GL_TEXTURE_2D_ARRAY);
+  m_texture_array.push_back(std::move(alpha_texture_array));
+
+  TextureArray shadow_texture_array{64, 64, 1, (int)shadow_images.size()};
+  for (auto &i : shadow_images) {
+    shadow_texture_array.PushImage(i);
+  }
+  shadow_texture_array.GetTexture().GenerateMipmap(GL_TEXTURE_2D_ARRAY);
+  m_texture_array.push_back(std::move(shadow_texture_array));
 
   m_ssbo_alpha_slots.BufferData(alpha_slotmaps.size() *
                                     sizeof(alpha_slotmaps[0]),

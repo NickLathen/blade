@@ -709,6 +709,7 @@ void Game::Render() {
   for (const auto &t : m_rp_wow_terrain) {
     m_wow_terrain_shader[0].BindBlendTexture(m_texture_arrays[0].GetTexture());
     m_wow_terrain_shader[0].BindAlphaTexture(t.GetAlphaTexture());
+    m_wow_terrain_shader[0].BindShadowTexture(t.GetShadowTexture());
     m_wow_terrain_shader[0].BindHeightmapBuffer(t.GetHeightmapSSBO());
     m_wow_terrain_shader[0].BindTextureSlotsBuffer(t.GetTextureSlotsSSBO());
     m_wow_terrain_shader[0].BindAlphaSlotsBuffer(t.GetAlphaSlotsSSBO());
