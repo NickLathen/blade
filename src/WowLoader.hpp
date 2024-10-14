@@ -168,7 +168,8 @@ struct MCNKHeader {
 
   /*0x00C*/ uint32_t nLayers; // maximum 4
   /*0x010*/ uint32_t nDoodadRefs;
-  uint64_t holes_high_res; // only used with flags.high_res_holes
+  uint32_t high_res_holes_lower;
+  uint32_t high_res_holes_upper;
   /*0x01C*/ uint32_t ofsLayer;
   /*0x020*/ uint32_t ofsRefs;
   /*0x024*/ uint32_t ofsAlpha;
@@ -178,15 +179,10 @@ struct MCNKHeader {
   /*0x034*/ uint32_t
       areaid; // in alpha: both zone id and sub zone id, as uint16s.
   /*0x038*/ uint32_t nMapObjRefs;
-  /*0x03C*/ uint16_t holes_low_res;
-  /*0x03E*/ uint16_t unknown_but_used; // in alpha: padding
-  /*0x040*/ std::bitset<32>
-      ReallyLowQualityTextureingMap; // "predTex", It is used to determine
-                                     // which detail doodads to show. Values
-                                     // are an array of two bit unsigned
-                                     // integers, naming the layer.
-  /*0x050*/ std::bitset<16> noEffectDoodad; // doodads disabled if 1; WoD: may
-                                            // be an explicit MCDD chunk
+  uint16_t holes;
+  uint16_t unused0;
+  uint8_t low_quality_texture_map[0x10];
+  uint8_t disable_doodads_map[8]; // 8x8 1bit array
   /*0x058*/ uint32_t ofsSndEmitters;
   /*0x05C*/ uint32_t nSndEmitters; // will be set to 0 in the client if
                                    // ofsSndEmitters doesn't point to MCSE!
@@ -199,7 +195,7 @@ struct MCNKHeader {
   /*0x074*/ uint32_t ofsMCCV;  // only with flags.has_mccv, had uint32_t
                                // textureId; in ObscuR's structure.
   /*0x078*/ uint32_t ofsMCLV;  // introduced in Cataclysm
-  /*0x07C*/ uint32_t unused;   // currently unused
+  /*0x07C*/ uint32_t unused1;  // currently unused
   /*0x080*/
 };
 

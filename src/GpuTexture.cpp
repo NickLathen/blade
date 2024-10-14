@@ -10,7 +10,7 @@ GpuTexture::GpuTexture(const unsigned char *data, int width, int height,
   BindTexture(GL_TEXTURE_2D);
   SetTextureParameters(GL_TEXTURE_2D, tex_parameters);
   if (data != 0) {
-    SetTextureData(GL_TEXTURE_2D, data, 0, width, height, num_channels);
+    SetTextureData2D(GL_TEXTURE_2D, data, 0, width, height, num_channels);
     glGenerateMipmap(GL_TEXTURE_2D);
   } else {
     printf("Failed to load texture\n");
@@ -20,7 +20,7 @@ GpuTexture::GpuTexture(const std::vector<ImageData> &images,
                        const GpuTexParameters &tex_parameters) {
   glGenTextures(1, &m_texture);
   BindTexture(GL_TEXTURE_2D_ARRAY);
-  SetTextureParameters(GL_TEXTURE_2D, tex_parameters);
+  SetTextureParameters(GL_TEXTURE_2D_ARRAY, tex_parameters);
 
   int texture_depth = images.size();
   int texture_width = 0;
@@ -65,6 +65,29 @@ GpuTexture::GpuTexture(const std::vector<ImageData> &images,
   glGenerateMipmap(GL_TEXTURE_2D_ARRAY);
   glBindTexture(GL_TEXTURE_2D_ARRAY, 0);
 };
+GpuTexture::GpuTexture(int width, int height, int depth, int num_channels,
+                       const GpuTexParameters &tex_parameters) {
+  glGenTextures(1, &m_texture);
+  BindTexture(GL_TEXTURE_2D_ARRAY);
+  SetTextureParameters(GL_TEXTURE_2D_ARRAY, tex_parameters);
+  GLint internalFormat;
+  GLenum format;
+  if (num_channels == 1) {
+    internalFormat = GL_R8;
+    format = GL_RED;
+  } else if (num_channels == 3) {
+    internalFormat = GL_RGB8;
+    format = GL_RGB;
+  } else if (num_channels == 4) {
+    internalFormat = GL_RGBA8;
+    format = GL_RGBA;
+  } else {
+    throw std::runtime_error("Unsupported channels");
+  }
+  glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, internalFormat, width, height, depth, 0,
+               format, GL_UNSIGNED_BYTE, nullptr);
+  glBindTexture(GL_TEXTURE_2D_ARRAY, 0);
+};
 GpuTexture GpuTexture::FromPaths(const std::vector<std::string> &paths,
                                  const GpuTexParameters &tex_parameters) {
   std::vector<ImageData> images;
@@ -72,6 +95,11 @@ GpuTexture GpuTexture::FromPaths(const std::vector<std::string> &paths,
     images.emplace_back(p, 4);
   }
   return GpuTexture{images, tex_parameters};
+};
+void GpuTexture::GenerateMipmap(GLenum target) const {
+  BindTexture(target);
+  glGenerateMipmap(target);
+  glBindTexture(target, 0);
 };
 void GpuTexture::BindTexture(GLenum target) const {
   glBindTexture(target, m_texture);

@@ -3,6 +3,7 @@
 #include <imgui.h>
 #include <iostream>
 #include <random>
+#include <unordered_map>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
@@ -440,11 +441,18 @@ Game::Game(Platform *platform) : m_platform{platform} {
                              m_mesh_groups[0].GetMaterialVertexBuffer(),
                              m_mesh_groups[0].GetElementBuffer());
 
+  m_mesh_groups.emplace_back(
+      Import("/home/nick/wow.export/maps/azeroth/adt_29_52.obj"));
+  m_rp_textured_material.emplace_back(m_mesh_groups[1].GetTextureFiles(),
+                                      m_mesh_groups[1].GetTextureVertexBuffer(),
+                                      m_mesh_groups[1].GetElementBuffer(),
+                                      m_mesh_groups[1].GetMeshMap());
+
   m_rp_depth_map.emplace_back(kDepthMapSize);
   m_rp_terrain.emplace_back();
   std::vector<std::pair<std::string, std::string>> wow_map_paths{};
   for (int i = 29; i <= 35; i++) {
-    for (int j = 47; j <= 50; j++) {
+    for (int j = 35; j <= 52; j++) {
       std::pair p{"/home/nick/wow.export/maps/azeroth/azeroth.wdt",
                   "azeroth_" + std::to_string(i) + "_" + std::to_string(j)};
       if (std::filesystem::exists("/home/nick/wow.export/maps/azeroth/" +
@@ -453,9 +461,20 @@ Game::Game(Platform *platform) : m_platform{platform} {
       }
     }
   }
+  std::unordered_map<uint32_t, int> wow_file_data_id_texture_map;
+  GpuTexParameters gtp{{GL_TEXTURE_WRAP_S, GL_REPEAT},
+                       {GL_TEXTURE_WRAP_T, GL_REPEAT},
+                       {GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR},
+                       {GL_TEXTURE_MAG_FILTER, GL_LINEAR}};
+  int kTextureArraySize = 1024;
+  TextureArray terrain_texture_array{256, 256, 4, kTextureArraySize, gtp};
   for (const auto &p : wow_map_paths) {
-    m_rp_wow_terrain.emplace_back(p.first, p.second);
+    m_rp_wow_terrain.emplace_back(p.first, p.second, terrain_texture_array,
+                                  wow_file_data_id_texture_map);
   }
+  terrain_texture_array.GetTexture().GenerateMipmap(GL_TEXTURE_2D_ARRAY);
+  m_texture_arrays.push_back(std::move(terrain_texture_array));
+
   float kGridScale = 200.0f;
   m_light = {
       .ambient_color = {0.5f, 0.5f, 0.5f},
@@ -464,7 +483,7 @@ Game::Game(Platform *platform) : m_platform{platform} {
       .static_distance = M_SQRT2f32 * kGridScale,
       .static_fov = 60.0f,
   };
-  glm::vec3 initial_camera_position{-9000.0, 75.0, -500.0};
+  glm::vec3 initial_camera_position{-11000.0, 75.0, -1300.0};
   glm::vec3 initial_camera_target{0.0, 0.0, 0.0};
   glm::mat4 transform{glm::lookAt(initial_camera_position,
                                   initial_camera_target, glm::vec3{0, 1, 0})};
@@ -475,7 +494,8 @@ Game::Game(Platform *platform) : m_platform{platform} {
               .fov = 60,
               .near = 0.1f,
               .far = 10000.0f};
-  m_model_matrix = glm::mat4(1.0);
+  m_model_matrix = glm::rotate(glm::mat4(1.0), M_PI_2f32, glm::vec3(0, 1, 0));
+  m_model_matrix = glm::translate(m_model_matrix, glm::vec3(0, -100, 0));
   m_terrain_matrix = glm::mat4(1.0);
   m_tile_config = {
       .height_scale = kGridScale / 4.0f,
@@ -543,7 +563,7 @@ void Game::Event(const SDL_Event &event) {
   }
 }
 void HandleInput(Camera &camera) {
-  float kMovementSensitivity = 0.8f;
+  float kMovementSensitivity = 5.0f;
   float kMouseMovementSensitivity = 0.005f;
   float kMouseLookSensitivity = .005f;
   int x, y, l;
@@ -667,7 +687,7 @@ void Game::Render() {
   m_material_shader[0].Begin();
   // m_rp_material[0].DrawVertices();
   for (auto &rp : m_rp_textured_material) {
-    // rp.DrawVertices(m_material_shader[0]);
+    rp.DrawVertices(m_material_shader[0]);
   }
   m_material_shader[0].End();
 
@@ -687,11 +707,12 @@ void Game::Render() {
   // Draw Wow Terrain
   m_wow_terrain_shader[0].Begin();
   for (const auto &t : m_rp_wow_terrain) {
+    m_wow_terrain_shader[0].BindBlendTexture(m_texture_arrays[0].GetTexture());
+    m_wow_terrain_shader[0].BindAlphaTexture(t.GetAlphaTexture());
     m_wow_terrain_shader[0].BindHeightmapBuffer(t.GetHeightmapSSBO());
     m_wow_terrain_shader[0].BindTextureSlotsBuffer(t.GetTextureSlotsSSBO());
     m_wow_terrain_shader[0].BindAlphaSlotsBuffer(t.GetAlphaSlotsSSBO());
-    m_wow_terrain_shader[0].BindBlendTexture(t.GetBlendTexture());
-    m_wow_terrain_shader[0].BindAlphaTexture(t.GetAlphaTexture());
+    m_wow_terrain_shader[0].BindHolesBuffer(t.GetHolesSSBO());
     m_wow_terrain_shader[0].SetUniforms(camera_position, m_light,
                                         wow_terrain_vp, t.GetCornerPosition());
     t.DrawVertices();

@@ -313,16 +313,6 @@ ImageData LoadBlp(const std::string &path) {
         result.push_back(p.g);
         result.push_back(p.b);
       }
-      // invert y axis
-      for (uint i = 0; i < header.width; i++) {
-        for (uint j = 0; j < header.height / 2; j++) {
-          uint yMirror = header.height - 1 - j;
-          for (uint k = 0; k < 3; k++) {
-            std::swap(result[(i + j * header.width) * 3 + k],
-                      result[(i + yMirror * header.width) * 3 + k]);
-          }
-        }
-      }
       return ImageData(&result[0], header.width, header.height, id_RGB8);
     } else if (header.alphaDepth == 8) { // alpha data packed after color data
       unsigned char alpha_buffer[buff_size];
@@ -334,16 +324,6 @@ ImageData LoadBlp(const std::string &path) {
         result.push_back(p.g);
         result.push_back(p.b);
         result.push_back(alpha_buffer[i]);
-      }
-      // invert y axis
-      for (uint i = 0; i < header.width; i++) {
-        for (uint j = 0; j < header.height / 2; j++) {
-          uint yMirror = header.height - 1 - j;
-          for (uint k = 0; k < 4; k++) {
-            std::swap(result[(i + j * header.width) * 4 + k],
-                      result[(i + yMirror * header.width) * 4 + k]);
-          }
-        }
       }
       return ImageData(&result[0], header.width, header.height, id_RGBA8);
     } else {
@@ -362,14 +342,6 @@ ImageData LoadBlp(const std::string &path) {
                      out_buff);
     } else {
       throw std::runtime_error("Unsupported alphaDepth");
-    }
-    // invert y axis;
-    for (uint i = 0; i < header.width; i++) {
-      for (uint j = 0; j < header.height / 2; j++) {
-        uint yMirror = header.height - 1 - j;
-        std::swap(out_buff[i + j * header.width],
-                  out_buff[i + yMirror * header.width]);
-      }
     }
     result.reserve(out_buff.size() * 4);
     for (auto c : out_buff) {

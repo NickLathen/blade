@@ -17,20 +17,16 @@ ImageData::ImageData(const std::string &filename, int req_comp) {
 ImageData::ImageData(const unsigned char *data, int width, int height,
                      ImageDataFormat texture_format)
     : width{width}, height{height} {
-  if (texture_format == id_RGB8 || texture_format == id_RGBA8) {
-    if (texture_format == id_RGB8) {
-      num_channels = 3;
-    } else {
-      num_channels = 4;
-    }
-    size_t size = width * height * num_channels;
-    m_data.insert(m_data.end(), data, data + size);
-    return;
-  } else if (texture_format == id_R8) {
+  if (texture_format == id_R8) {
     num_channels = 1;
-    size_t size = width * height;
-    m_data.insert(m_data.end(), data, data + size);
+  } else if (texture_format == id_RGB8) {
+    num_channels = 3;
+  } else if (texture_format == id_RGBA8) {
+    num_channels = 4;
   } else {
     throw std::runtime_error("Unsupported texture_format");
   }
+  size_t size = width * height * num_channels;
+  m_data.insert(m_data.end(), data, data + size);
+  return;
 }

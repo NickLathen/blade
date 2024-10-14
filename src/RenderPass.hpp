@@ -286,7 +286,7 @@ public:
     m_shader.Uniform1i("uBlendTexture", m_blend_texture);
     m_shader.Uniform1i("uAlphaTexture", m_alpha_texture);
     glUseProgram(0);
-  }
+  };
   NEVER_COPY(RPWowTerrainShader);
   RPWowTerrainShader(RPWowTerrainShader &&other)
       : m_shader{std::move(other.m_shader)},
@@ -295,6 +295,7 @@ public:
         m_heightmap_block_binding{other.m_heightmap_block_binding},
         m_texture_slots_block_binding{other.m_texture_slots_block_binding},
         m_alpha_slots_block_binding{other.m_alpha_slots_block_binding},
+        m_holes_block_binding{other.m_holes_block_binding},
         g_depth_test{other.g_depth_test}, g_cull_face{other.g_cull_face},
         g_cull_face_mode{other.g_cull_face_mode},
         g_front_face{other.g_front_face} {};
@@ -308,7 +309,7 @@ public:
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
     glFrontFace(GL_CCW);
-  }
+  };
   void End() {
     if (g_depth_test == GL_FALSE)
       glDisable(GL_DEPTH_TEST);
@@ -317,7 +318,7 @@ public:
     glCullFace(g_cull_face_mode);
     glFrontFace(g_front_face);
     glUseProgram(0);
-  }
+  };
   void SetUniforms(const glm::vec3 &camera_pos, const Light &light,
                    const glm::mat4 &mvp, const glm::vec2 &corner_pos) const {
     m_shader.Uniform3fv("uCameraPos", camera_pos);
@@ -326,22 +327,25 @@ public:
     m_shader.Uniform3fv("uLightColor", light.diffuse_color);
     m_shader.Uniform2fv("uCornerPos", corner_pos);
     m_shader.UniformMatrix4fv("uMVP", GL_FALSE, mvp);
-  }
+  };
+  void BindBlendTexture(const GpuTexture &texture) const {
+    Bind2DArrayTextureLocation(texture, m_blend_texture);
+  };
+  void BindAlphaTexture(const GpuTexture &texture) const {
+    Bind2DArrayTextureLocation(texture, m_alpha_texture);
+  };
   void BindHeightmapBuffer(const GpuSSBO &ssbo) const {
     ssbo.BindBufferBase(m_heightmap_block_binding);
-  }
+  };
   void BindTextureSlotsBuffer(const GpuSSBO &ssbo) const {
     ssbo.BindBufferBase(m_texture_slots_block_binding);
   };
   void BindAlphaSlotsBuffer(const GpuSSBO &ssbo) const {
     ssbo.BindBufferBase(m_alpha_slots_block_binding);
   };
-  void BindBlendTexture(const GpuTexture &texture) const {
-    Bind2DArrayTextureLocation(texture, m_blend_texture);
-  }
-  void BindAlphaTexture(const GpuTexture &texture) const {
-    Bind2DArrayTextureLocation(texture, m_alpha_texture);
-  }
+  void BindHolesBuffer(const GpuSSBO &ssbo) const {
+    ssbo.BindBufferBase(m_holes_block_binding);
+  };
 
 private:
   Shader m_shader;
@@ -350,6 +354,7 @@ private:
   const GLuint m_heightmap_block_binding{0};
   const GLuint m_texture_slots_block_binding{1};
   const GLuint m_alpha_slots_block_binding{2};
+  const GLuint m_holes_block_binding{3};
   GLboolean g_depth_test, g_cull_face;
   GLint g_cull_face_mode, g_front_face;
 };

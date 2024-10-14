@@ -24,8 +24,11 @@ std::string GetWowItemPath(uint32_t id) {
   return "/home/nick/wow.export/" + path;
 }
 
-void RPWowTerrain::LoadTerrainAdt(const std::string &wdt_path,
-                                  const std::string &adt_name) {
+void RPWowTerrain::LoadTerrainAdt(
+    const std::string &wdt_path, const std::string &adt_name,
+    TextureArray &texture_array,
+    std::unordered_map<uint32_t, int> &wow_file_data_id_texture_map) {
+  std::vector<int> texture_slots{};
   WdtData wd{LoadWdt(wdt_path)};
   uint i = 0;
   for (; i < 64 * 64; i++) {
@@ -44,13 +47,18 @@ void RPWowTerrain::LoadTerrainAdt(const std::string &wdt_path,
   m_corner_position[1] = ad.mcnk[0].header.position[1] - 533.3333;
 
   // load m_textures from atd.mdid[i]
-  std::vector<ImageData> mdid_images;
   for (MDIDHeader h : atd.mdid) {
+    auto r = wow_file_data_id_texture_map.find(h.file_data_id);
+    if (r != wow_file_data_id_texture_map.end()) {
+      texture_slots.push_back((*r).second);
+      continue;
+    }
     std::string path = GetWowItemPath(h.file_data_id);
     printf("Loading %s...\n", path.c_str());
-    mdid_images.emplace_back(LoadBlp(path));
+    ImageData image{LoadBlp(path)};
+    texture_slots.push_back(texture_array.PushImage(image));
+    wow_file_data_id_texture_map.insert({h.file_data_id, texture_slots.back()});
   }
-  m_texture.emplace_back(mdid_images);
 
   // build heightmap (DOUBLE PACKED)
   struct HeightNormalMap {
@@ -77,6 +85,7 @@ void RPWowTerrain::LoadTerrainAdt(const std::string &wdt_path,
   typedef std::array<uint32_t, 4> TextureSlotMap;
   // build texture slot map
   // atd.mcnk appears to be column wise, but we convert back to row wise
+  std::vector<uint32_t> holes;
   std::vector<TextureSlotMap> slotmaps{};
   std::vector<TextureSlotMap> alpha_slotmaps{};
   std::vector<ImageData> alpha_images{};
@@ -84,10 +93,14 @@ void RPWowTerrain::LoadTerrainAdt(const std::string &wdt_path,
     for (size_t col = 0; col < 16; col++) {
       size_t i = col * 16 + row;
 
+      // holes
+      holes.push_back(ad.mcnk[i].header.high_res_holes_lower);
+      holes.push_back(ad.mcnk[i].header.high_res_holes_upper);
+
       // texture slot maps
       TextureSlotMap slotmap{};
       for (size_t j = 0; j < atd.mcnk[i].mcly.size(); j++) {
-        slotmap[j] = atd.mcnk[i].mcly[j].textureId;
+        slotmap[j] = texture_slots[atd.mcnk[i].mcly[j].textureId];
       }
       slotmaps.push_back(slotmap);
 
@@ -118,11 +131,20 @@ void RPWowTerrain::LoadTerrainAdt(const std::string &wdt_path,
       alpha_slotmaps.push_back(alpha_slotmap);
     }
   }
+  m_ssbo_holes.BufferData(holes.size() * sizeof(holes[0]), &holes[0],
+                          GL_STATIC_DRAW);
+  m_ssbo_holes.Unbind();
+
   m_ssbo_texture_slots.BufferData(slotmaps.size() * sizeof(slotmaps[0]),
                                   &slotmaps[0], GL_STATIC_DRAW);
   m_ssbo_texture_slots.Unbind();
 
-  m_texture.emplace_back(alpha_images);
+  TextureArray ta{64, 64, 1, (int)alpha_images.size()};
+  for (auto &i : alpha_images) {
+    ta.PushImage(i);
+  }
+  ta.GetTexture().GenerateMipmap(GL_TEXTURE_2D_ARRAY);
+  m_texture_array.push_back(std::move(ta));
 
   m_ssbo_alpha_slots.BufferData(alpha_slotmaps.size() *
                                     sizeof(alpha_slotmaps[0]),
@@ -133,12 +155,15 @@ void RPWowTerrain::LoadTerrainAdt(const std::string &wdt_path,
   m_vao.Unbind();
 }
 
-RPWowTerrain::RPWowTerrain(const std::string &wdt_path,
-                           const std::string &adt_name) {
-  LoadTerrainAdt(wdt_path, adt_name);
+RPWowTerrain::RPWowTerrain(
+    const std::string &wdt_path, const std::string &adt_name,
+    TextureArray &terrain_texture_array,
+    std::unordered_map<uint32_t, int> &wow_file_data_id_texture_map) {
+  LoadTerrainAdt(wdt_path, adt_name, terrain_texture_array,
+                 wow_file_data_id_texture_map);
 };
 void RPWowTerrain::DrawVertices() const {
-  constexpr size_t kBoxVerts = 8;
+  constexpr size_t kBoxVerts = 10;
   constexpr size_t kBoxesPerBlock = 8 * 8;
   constexpr size_t kBlocksPerChunk = 16 * 16;
   constexpr size_t kBlockVerts = kBoxVerts * kBoxesPerBlock;
