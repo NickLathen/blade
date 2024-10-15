@@ -16,7 +16,6 @@ BUILD_FILES=src/main.cpp \
             src/Mesh.cpp \
             src/MeshGroup.cpp \
             src/Platform.cpp \
-            src/RenderPass.cpp \
             src/RPDepthMap.cpp \
             src/RPIcon.cpp \
             src/RPMaterial.cpp \
@@ -25,6 +24,7 @@ BUILD_FILES=src/main.cpp \
             src/RPTexturedMaterial.cpp \
             src/RPWowTerrain.cpp \
             src/TextureArray.cpp \
+            src/MultiTextureArray.cpp \
             src/Shader.cpp \
             src/utils.cpp \
             src/WdtLoader.cpp \

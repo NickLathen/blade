@@ -8,6 +8,7 @@
 #include "Material.hpp"
 #include "Mesh.hpp"
 #include "MeshGroup.hpp"
+#include "MultiTextureArray.hpp"
 #include "Shader.hpp"
 #include "gl.hpp"
 #include "utils.hpp"
@@ -45,11 +46,6 @@ struct TextureTileConfig {
   float flat_bias;
   float parallel_bias;
 };
-
-void BindTextureLocation(const GpuTexture &texture,
-                         const GLuint texture_location);
-void Bind2DArrayTextureLocation(const GpuTexture &texture,
-                                const GLuint texture_location);
 
 class RPMaterialShader {
 public:
@@ -283,7 +279,6 @@ public:
       : m_shader{"shaders/wow_terrain_vertex.glsl",
                  "shaders/wow_terrain_fragment.glsl"} {
     m_shader.UseProgram();
-    m_shader.Uniform1i("uBlendTexture", m_blend_texture);
     m_shader.Uniform1i("uAlphaTexture", m_alpha_texture);
     m_shader.Uniform1i("uShadowTexture", m_shadow_texture);
     glUseProgram(0);
@@ -291,7 +286,6 @@ public:
   NEVER_COPY(RPWowTerrainShader);
   RPWowTerrainShader(RPWowTerrainShader &&other)
       : m_shader{std::move(other.m_shader)},
-        m_blend_texture{other.m_blend_texture},
         m_alpha_texture{other.m_alpha_texture},
         m_shadow_texture{other.m_shadow_texture},
         m_heightmap_block_binding{other.m_heightmap_block_binding},
@@ -330,8 +324,9 @@ public:
     m_shader.Uniform2fv("uCornerPos", corner_pos);
     m_shader.UniformMatrix4fv("uMVP", GL_FALSE, mvp);
   };
-  void BindBlendTexture(const GpuTexture &texture) const {
-    Bind2DArrayTextureLocation(texture, m_blend_texture);
+  void BindMultiTexture(const MultiTextureArray &mta) const {
+    std::vector<GLint> samplers = mta.BindTextures();
+    m_shader.Uniform1iv("uTextureArray", samplers.size(), &samplers[0]);
   };
   void BindAlphaTexture(const GpuTexture &texture) const {
     Bind2DArrayTextureLocation(texture, m_alpha_texture);
@@ -354,9 +349,8 @@ public:
 
 private:
   Shader m_shader;
-  const GLuint m_blend_texture{0};
-  const GLuint m_alpha_texture{1};
-  const GLuint m_shadow_texture{2};
+  const GLuint m_alpha_texture{16};
+  const GLuint m_shadow_texture{17};
   const GLuint m_heightmap_block_binding{0};
   const GLuint m_texture_slots_block_binding{1};
   const GLuint m_alpha_slots_block_binding{2};

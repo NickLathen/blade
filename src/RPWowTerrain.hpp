@@ -5,14 +5,15 @@
 
 #include "GpuResources.hpp"
 #include "GpuTexture.hpp"
-#include "TextureArray.hpp"
+#include "MultiTextureArray.hpp"
 #include "utils.hpp"
 
 class RPWowTerrain {
 public:
-  RPWowTerrain(const std::string &wdt_path, const std::string &adt_name,
-               TextureArray &terrain_texture_array,
-               std::unordered_map<uint32_t, int> &wow_file_data_id_texture_map);
+  RPWowTerrain(
+      const std::string &wdt_path, const std::string &adt_name,
+      MultiTextureArray &multi_texture_array,
+      std::unordered_map<uint32_t, uint32_t> &wow_file_data_id_texture_map);
   NEVER_COPY(RPWowTerrain);
   RPWowTerrain(RPWowTerrain &&other)
       : m_vao{std::move(other.m_vao)},
@@ -38,8 +39,8 @@ public:
 private:
   void LoadTerrainAdt(
       const std::string &wdt_path, const std::string &adt_name,
-      TextureArray &terrain_texture_array,
-      std::unordered_map<uint32_t, int> &wow_file_data_id_texture_map);
+      MultiTextureArray &multi_texture_array,
+      std::unordered_map<uint32_t, uint32_t> &wow_file_data_id_texture_map);
   GpuVAO m_vao;
   GpuSSBO m_ssbo_heightmap;     // heights + normals
   GpuSSBO m_ssbo_texture_slots; // map texture slots for each block

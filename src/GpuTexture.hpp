@@ -115,15 +115,16 @@ public:
       throw std::runtime_error("Unrecognized texture target.");
     }
   }
-  static void SetTextureSubData3D(GLenum target, ImageData &image,
+  static void SetTextureSubData3D(GLenum target, const ImageData &image,
                                   int zoffset = 0) {
     SetTextureSubData3D(target, image.get(), 0, image.width, image.height,
                         zoffset, image.num_channels);
   }
-  static void SetTextureSubData3D(GLenum target, std::vector<ImageData> &images,
+  static void SetTextureSubData3D(GLenum target,
+                                  const std::vector<ImageData> &images,
                                   int offset = 0) {
     for (int depth = 0; depth < images.size(); depth++) {
-      ImageData &image = images[depth];
+      const ImageData &image = images.at(depth);
       SetTextureSubData3D(target, image.get(), 0, image.width, image.height,
                           depth + offset, image.num_channels);
     }
@@ -132,3 +133,8 @@ public:
 private:
   GLuint m_texture;
 };
+
+void BindTextureLocation(const GpuTexture &texture,
+                         const GLuint texture_location);
+void Bind2DArrayTextureLocation(const GpuTexture &texture,
+                                const GLuint texture_location);

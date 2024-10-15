@@ -450,9 +450,10 @@ Game::Game(Platform *platform) : m_platform{platform} {
 
   m_rp_depth_map.emplace_back(kDepthMapSize);
   m_rp_terrain.emplace_back();
+
   std::vector<std::pair<std::string, std::string>> wow_map_paths{};
-  for (int i = 29; i <= 35; i++) {
-    for (int j = 35; j <= 52; j++) {
+  for (int i = 29; i <= 29; i++) {
+    for (int j = 52; j <= 52; j++) {
       std::pair p{"/home/nick/wow.export/maps/azeroth/azeroth.wdt",
                   "azeroth_" + std::to_string(i) + "_" + std::to_string(j)};
       if (std::filesystem::exists("/home/nick/wow.export/maps/azeroth/" +
@@ -461,19 +462,14 @@ Game::Game(Platform *platform) : m_platform{platform} {
       }
     }
   }
-  std::unordered_map<uint32_t, int> wow_file_data_id_texture_map;
-  GpuTexParameters gtp{{GL_TEXTURE_WRAP_S, GL_REPEAT},
-                       {GL_TEXTURE_WRAP_T, GL_REPEAT},
-                       {GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR},
-                       {GL_TEXTURE_MAG_FILTER, GL_LINEAR}};
-  int kTextureArraySize = 1024;
-  TextureArray terrain_texture_array{256, 256, 4, kTextureArraySize, gtp};
+  std::unordered_map<uint32_t, uint32_t> wow_file_data_id_texture_map;
+  MultiTextureArray multi_texture_array{};
   for (const auto &p : wow_map_paths) {
-    m_rp_wow_terrain.emplace_back(p.first, p.second, terrain_texture_array,
+    m_rp_wow_terrain.emplace_back(p.first, p.second, multi_texture_array,
                                   wow_file_data_id_texture_map);
   }
-  terrain_texture_array.GetTexture().GenerateMipmap(GL_TEXTURE_2D_ARRAY);
-  m_texture_arrays.push_back(std::move(terrain_texture_array));
+  multi_texture_array.GenerateMipmaps();
+  m_multi_texture_arrays.push_back(std::move(multi_texture_array));
 
   float kGridScale = 200.0f;
   m_light = {
@@ -706,8 +702,8 @@ void Game::Render() {
 
   // Draw Wow Terrain
   m_wow_terrain_shader[0].Begin();
+  m_wow_terrain_shader[0].BindMultiTexture(m_multi_texture_arrays[0]);
   for (const auto &t : m_rp_wow_terrain) {
-    m_wow_terrain_shader[0].BindBlendTexture(m_texture_arrays[0].GetTexture());
     m_wow_terrain_shader[0].BindAlphaTexture(t.GetAlphaTexture());
     m_wow_terrain_shader[0].BindShadowTexture(t.GetShadowTexture());
     m_wow_terrain_shader[0].BindHeightmapBuffer(t.GetHeightmapSSBO());

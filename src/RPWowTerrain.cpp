@@ -26,8 +26,8 @@ std::string GetWowItemPath(uint32_t id) {
 
 void RPWowTerrain::LoadTerrainAdt(
     const std::string &wdt_path, const std::string &adt_name,
-    TextureArray &texture_array,
-    std::unordered_map<uint32_t, int> &wow_file_data_id_texture_map) {
+    MultiTextureArray &multi_texture_array,
+    std::unordered_map<uint32_t, uint32_t> &wow_file_data_id_texture_map) {
   std::vector<int> texture_slots{};
   WdtData wd{LoadWdt(wdt_path)};
   uint i = 0;
@@ -43,10 +43,19 @@ void RPWowTerrain::LoadTerrainAdt(
   AdtObjData aod0{LoadAdtObj(GetWowItemPath(wd.maid[i].obj0ADT))};
   AdtObjData aod1{LoadAdtObj(GetWowItemPath(wd.maid[i].obj1ADT))};
 
+  // atd.mcnk[i].mcly[j].flags.*
+  // animation_enabled
+  // overbright
+  // use_alpha_map
+
   m_corner_position[0] = ad.mcnk[0].header.position[0];
   m_corner_position[1] = ad.mcnk[0].header.position[1] - 533.3333;
 
   // load m_textures from atd.mdid[i]
+  GpuTexParameters terrain_gtp{{GL_TEXTURE_WRAP_S, GL_REPEAT},
+                               {GL_TEXTURE_WRAP_T, GL_REPEAT},
+                               {GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR},
+                               {GL_TEXTURE_MAG_FILTER, GL_LINEAR}};
   for (MDIDHeader h : atd.mdid) {
     auto r = wow_file_data_id_texture_map.find(h.file_data_id);
     if (r != wow_file_data_id_texture_map.end()) {
@@ -56,7 +65,7 @@ void RPWowTerrain::LoadTerrainAdt(
     std::string path = GetWowItemPath(h.file_data_id);
     printf("Loading %s...\n", path.c_str());
     ImageData image{LoadBlp(path)};
-    texture_slots.push_back(texture_array.PushImage(image));
+    texture_slots.push_back(multi_texture_array.PushImage(image, terrain_gtp));
     wow_file_data_id_texture_map.insert({h.file_data_id, texture_slots.back()});
   }
 
@@ -178,9 +187,9 @@ void RPWowTerrain::LoadTerrainAdt(
 
 RPWowTerrain::RPWowTerrain(
     const std::string &wdt_path, const std::string &adt_name,
-    TextureArray &terrain_texture_array,
-    std::unordered_map<uint32_t, int> &wow_file_data_id_texture_map) {
-  LoadTerrainAdt(wdt_path, adt_name, terrain_texture_array,
+    MultiTextureArray &multi_texture_array,
+    std::unordered_map<uint32_t, uint32_t> &wow_file_data_id_texture_map) {
+  LoadTerrainAdt(wdt_path, adt_name, multi_texture_array,
                  wow_file_data_id_texture_map);
 };
 void RPWowTerrain::DrawVertices() const {

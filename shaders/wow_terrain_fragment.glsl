@@ -3,6 +3,11 @@ precision highp float;
 
 #include "wow_terrain_functions.glsl"
 
+#define MULTI_TEXTURE_SIZE 16
+vec4 SampleMultiTextureArray(sampler2DArray multi_texture[MULTI_TEXTURE_SIZE], vec2 coords, uint id) {
+  return texture(multi_texture[id >> 16], vec3(coords, id & 0xFFFFu));
+}
+
 vec3 blendColors(vec3 baseColor, vec3 blendColor, float alpha) {
 	return baseColor + alpha * (blendColor - baseColor);
 };
@@ -19,9 +24,9 @@ layout(std430, binding=2) buffer uAlphaSlotBuffer {
   Slots uAlphaSlots[256];
 };
 
-uniform highp sampler2DArray uBlendTexture;
 uniform highp sampler2DArray uAlphaTexture;
 uniform highp sampler2DArray uShadowTexture;
+uniform highp sampler2DArray uTextureArray[MULTI_TEXTURE_SIZE];
 
 uniform vec3 uAmbientLightColor;
 uniform vec3 uLightDir;
@@ -38,10 +43,12 @@ void main() {
   vec2 scaledCoords = texCoords * 8.0;
   float alphaScale = 63.0 / 64.0; //see MCNK.header do_not_fix_alpha_map
   vec2 alphaCoords = texCoords * alphaScale + (1.0 - alphaScale) / 2.0;
-  vec3 color = texture(uBlendTexture, vec3(scaledCoords, uTextureSlots[blockNumber].slot[0])).rgb;
+  uint slotNumber = uTextureSlots[blockNumber].slot[0];
+  vec3 color = SampleMultiTextureArray(uTextureArray, scaledCoords, slotNumber).rgb;
   uint numTextures = uAlphaSlots[blockNumber].slot[0];
   for(uint i = 1u; i < numTextures; i++) {
-    vec3 blendColor = texture(uBlendTexture, vec3(scaledCoords, uTextureSlots[blockNumber].slot[i])).rgb;
+    slotNumber = uTextureSlots[blockNumber].slot[i];
+    vec3 blendColor = SampleMultiTextureArray(uTextureArray, scaledCoords, slotNumber).rgb;
     float alpha = texture(uAlphaTexture, vec3(alphaCoords, uAlphaSlots[blockNumber].slot[i])).r;
     color = blendColors(color, blendColor, alpha);
   }
